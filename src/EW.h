@@ -300,6 +300,24 @@ class EW
    void copy_point_sources_to_gpu();
    void init_point_sourcesCU();
 
+   void RHSPredCU_upper_boundary(vector<Sarray> & a_Up, vector<Sarray> & a_U, vector<Sarray> & a_Um,
+                                 vector<Sarray>& a_Mu, vector<Sarray>& a_Lambda,
+                                 vector<Sarray>& a_Rho, vector<Sarray>& a_F, int st);
+   void RHSPredCU_center(vector<Sarray> & a_Up, vector<Sarray> & a_U, vector<Sarray> & a_Um,
+                         vector<Sarray>& a_Mu, vector<Sarray>& a_Lambda,
+                         vector<Sarray>& a_Rho, vector<Sarray>& a_F, int st);
+   void RHSCorrCU_upper_boundary(vector<Sarray> & a_Up, vector<Sarray> & a_U,
+                                 vector<Sarray>& a_Mu, vector<Sarray>& a_Lambda,
+                                 vector<Sarray>& a_Rho, vector<Sarray>& a_F, int st);
+   void RHSCorrCU_center(vector<Sarray> & a_Up, vector<Sarray> & a_U,
+                         vector<Sarray>& a_Mu, vector<Sarray>& a_Lambda,
+                         vector<Sarray>& a_Rho, vector<Sarray>& a_F, int st);
+ 
+   void addSuperGridDampingCU_upper_boundary(vector<Sarray> & a_Up, vector<Sarray> & a_U,
+                                             vector<Sarray> & a_Um, vector<Sarray> & a_Rho, int st);
+   void addSuperGridDampingCU_center(vector<Sarray> & a_Up, vector<Sarray> & a_U,
+                                     vector<Sarray> & a_Um, vector<Sarray> & a_Rho, int st);
+   
    // DG stuff
    int m_qu;
    int m_qv; 
@@ -453,6 +471,10 @@ class EW
    bool m_use_dg;
  
    // Halo data communication 
+// These 4 needs to revised   
+   vector<float_sw4*> dev_SideEdge_Send, dev_SideEdge_Recv;
+   vector<float_sw4*>  m_SideEdge_Send, m_SideEdge_Recv;
+
    vector<float_sw4*> dev_SideEdge_Send_X, dev_SideEdge_Recv_X;
    vector<float_sw4*> dev_SideEdge_Send_Y, dev_SideEdge_Recv_Y;
    vector<float_sw4*>  m_SideEdge_Send_X, m_SideEdge_Recv_X;
@@ -461,6 +483,8 @@ class EW
    void communicate_arrayCU( Sarray& u, int g , int st);
 
 #ifdef SW4_CUDA
+   void pack_HaloArrayCU( Sarray& u, int g , int st);
+   void unpack_HaloArrayCU( Sarray& u, int g , int st);
    void CheckCudaCall(cudaError_t command, const char * commandName, const char * fileName, int line);
 #endif
    
