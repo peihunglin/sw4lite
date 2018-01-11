@@ -56,476 +56,6 @@
 #endif
   
 //---------------------------------------------------------------------------
-void EW::RHSPredCU_upper_boundary(vector<Sarray> & a_Up, vector<Sarray> & a_U, vector<Sarray> & a_Um,
-                                  vector<Sarray>& a_Mu, vector<Sarray>& a_Lambda,
-                                  vector<Sarray>& a_Rho, vector<Sarray>& a_F, int st) {
-#ifdef SW4_CUDA
-  int ni, nj, nk, startk;
-
-  for(int g=0 ; g<mNumberOfCartesianGrids; g++ )
-    {
-      // Cube leading dimensions
-      ni = m_iEnd[g] - m_iStart[g] + 1;
-      nj = m_jEnd[g] - m_jStart[g] + 1;
-      nk = m_kEnd[g] - m_kStart[g] + 1;
-      
-      // If we have a free surface, the other kernels start at k=8 instead of 2,
-      // the free surface will compute k=[2:7]
-      if( m_onesided[g][4] )
-        startk = 8;
-      else
-        startk = 2;
-
-      // RHS and predictor in the X halos
-      rhs4_X_pred_gpu (2, ni-3, 4, nj-5, startk, nk-3,
-                       ni, nj, nk,
-                       a_Up[g].dev_ptr(), a_U[g].dev_ptr(), a_Um[g].dev_ptr(),
-                       a_Mu[g].dev_ptr(), a_Lambda[g].dev_ptr(), a_Rho[g].dev_ptr(), a_F[g].dev_ptr(),
-                       dev_sg_str_x[g], dev_sg_str_y[g], dev_sg_str_z[g],
-                       mGridSize[g], mDt, m_corder, m_cuobj->m_stream[st]);
-		   
-      // RHS and predictor in the Y halos
-      rhs4_Y_pred_gpu (2, ni-3, 2, nj-3, startk, nk-3,
-                       ni, nj, nk,
-                       a_Up[g].dev_ptr(), a_U[g].dev_ptr(), a_Um[g].dev_ptr(),
-                       a_Mu[g].dev_ptr(), a_Lambda[g].dev_ptr(), a_Rho[g].dev_ptr(), a_F[g].dev_ptr(),
-                       dev_sg_str_x[g], dev_sg_str_y[g], dev_sg_str_z[g],
-                       mGridSize[g], mDt, m_corder, m_cuobj->m_stream[st]);
-  
-      // Free surface and predictor
-      if( m_onesided[g][4] )
-        rhs4upper_pred_gpu (2, ni-3, 2, nj-3,
-                            ni, nj, nk,
-                            a_Up[g].dev_ptr(), a_U[g].dev_ptr(), a_Um[g].dev_ptr(),
-                            a_Mu[g].dev_ptr(), a_Lambda[g].dev_ptr(), a_Rho[g].dev_ptr(), a_F[g].dev_ptr(),
-                            dev_sg_str_x[g], dev_sg_str_y[g], dev_sg_str_z[g],
-                            mGridSize[g], mDt, m_corder, m_cuobj->m_stream[st]);
-
-      CHECK_ERROR("RHS4_Predictor_boundary")
-    }  
-#endif
-}  
-
-//---------------------------------------------------------------------------
-void EW::RHSPredCU_center(vector<Sarray> & a_Up, vector<Sarray> & a_U, vector<Sarray> & a_Um,
-                          vector<Sarray>& a_Mu, vector<Sarray>& a_Lambda,
-                          vector<Sarray>& a_Rho, vector<Sarray>& a_F, int st) {
-#ifdef SW4_CUDA
-  int ni, nj, nk, startk;
-
-  for(int g=0 ; g<mNumberOfCartesianGrids; g++ )
-    {
-      // Cube leading dimensions
-      ni = m_iEnd[g] - m_iStart[g] + 1;
-      nj = m_jEnd[g] - m_jStart[g] + 1;
-      nk = m_kEnd[g] - m_kStart[g] + 1;
-      
-      // If there's a free surface, start at k=8 instead of 2,
-      // the free surface will compute k=[2:7]
-      if( m_onesided[g][4] )
-        startk = 8;
-      else
-        startk = 2;
-
-      // RHS and predictor in center
-      rhs4_pred_gpu (4, ni-5, 4, nj-5, startk, nk-3,
-                     ni, nj, nk,
-                     a_Up[g].dev_ptr(), a_U[g].dev_ptr(), a_Um[g].dev_ptr(),
-                     a_Mu[g].dev_ptr(), a_Lambda[g].dev_ptr(), a_Rho[g].dev_ptr(), a_F[g].dev_ptr(),
-                     dev_sg_str_x[g], dev_sg_str_y[g], dev_sg_str_z[g],
-                     mGridSize[g], mDt, m_corder, m_cuobj->m_stream[st]);
-
-      CHECK_ERROR("RHS4_Predictor_rest")
-    }  
-#endif
-}  
-//---------------------------------------------------------------------------
-void EW::RHSCorrCU_upper_boundary(vector<Sarray> & a_Up, vector<Sarray> & a_U,
-                         vector<Sarray>& a_Mu, vector<Sarray>& a_Lambda,
-                         vector<Sarray>& a_Rho, vector<Sarray>& a_F, int st) {
-#ifdef SW4_CUDA
-  int ni, nj, nk, startk;
-
-  for(int g=0 ; g<mNumberOfCartesianGrids; g++ )
-    {
-      // Cube leading dimensions
-      ni = m_iEnd[g] - m_iStart[g] + 1;
-      nj = m_jEnd[g] - m_jStart[g] + 1;
-      nk = m_kEnd[g] - m_kStart[g] + 1;
-      
-      // If we have a free surface, the other kernels start at k=8 instead of 2,
-      // the free surface will compute k=[2:7]
-      if( m_onesided[g][4] )
-        startk = 8;
-      else
-        startk = 2;
-  
-      rhs4_X_corr_gpu (2, ni-3, 4, nj-5, startk, nk-3,
-                     ni, nj, nk,
-                     a_Up[g].dev_ptr(), a_U[g].dev_ptr(),
-                     a_Mu[g].dev_ptr(), a_Lambda[g].dev_ptr(), a_Rho[g].dev_ptr(), a_F[g].dev_ptr(),
-                     dev_sg_str_x[g], dev_sg_str_y[g], dev_sg_str_z[g],
-                     mGridSize[g], mDt, m_corder, m_cuobj->m_stream[st]);
-      rhs4_Y_corr_gpu (2, ni-3, 2, nj-3, startk, nk-3,
-                     ni, nj, nk,
-                     a_Up[g].dev_ptr(), a_U[g].dev_ptr(),
-                     a_Mu[g].dev_ptr(), a_Lambda[g].dev_ptr(), a_Rho[g].dev_ptr(), a_F[g].dev_ptr(),
-                     dev_sg_str_x[g], dev_sg_str_y[g], dev_sg_str_z[g],
-                     mGridSize[g], mDt, m_corder, m_cuobj->m_stream[st]);
-      // Free surface and corrector
-      if( m_onesided[g][4] )
-        rhs4upper_corr_gpu (2, ni-3, 2, nj-3,
-                            ni, nj, nk,
-                            a_Up[g].dev_ptr(), a_U[g].dev_ptr(),
-                            a_Mu[g].dev_ptr(), a_Lambda[g].dev_ptr(), a_Rho[g].dev_ptr(), a_F[g].dev_ptr(),
-                            dev_sg_str_x[g], dev_sg_str_y[g], dev_sg_str_z[g],
-                            mGridSize[g], mDt, m_corder, m_cuobj->m_stream[st]);
-
-      CHECK_ERROR("RHS4_Corrector_boundary")
-    }  
-#endif
-}  
-
-//---------------------------------------------------------------------------
-void EW::RHSCorrCU_center(vector<Sarray> & a_Up, vector<Sarray> & a_U,
-                         vector<Sarray>& a_Mu, vector<Sarray>& a_Lambda,
-                         vector<Sarray>& a_Rho, vector<Sarray>& a_F, int st) {
-#ifdef SW4_CUDA
-  int ni, nj, nk, startk;
-
-  for(int g=0 ; g<mNumberOfCartesianGrids; g++ )
-    {
-      // Cube leading dimensions
-      ni = m_iEnd[g] - m_iStart[g] + 1;
-      nj = m_jEnd[g] - m_jStart[g] + 1;
-      nk = m_kEnd[g] - m_kStart[g] + 1;
-      
-      // If we have a free surface, the other kernels start at k=8 instead of 2,
-      // the free surface will compute k=[2:7]
-      if( m_onesided[g][4] )
-        startk = 8;
-      else
-        startk = 2;
-  
-      // RHS and corrector in the rest of the cube
-      rhs4_corr_gpu (4, ni-5, 4, nj-5, startk, nk-3,
-                     ni, nj, nk,
-                     a_Up[g].dev_ptr(), a_U[g].dev_ptr(),
-                     a_Mu[g].dev_ptr(), a_Lambda[g].dev_ptr(), a_Rho[g].dev_ptr(), a_F[g].dev_ptr(),
-                     dev_sg_str_x[g], dev_sg_str_y[g], dev_sg_str_z[g],
-                     mGridSize[g], mDt, m_corder, m_cuobj->m_stream[st]);
-      CHECK_ERROR("RHS4_Corrector_boundary")
-    }  
-#endif
-}  
-
-
-//---------------------------------------------------------------------------
-void EW::addSuperGridDampingCU_upper_boundary(vector<Sarray> & a_Up, vector<Sarray> & a_U,
-                                              vector<Sarray> & a_Um, vector<Sarray> & a_Rho, int st )
-{
-#ifdef SW4_CUDA
-  for(int g=0 ; g<mNumberOfGrids; g++ )
-   {
-     int ni = m_iEnd[g] - m_iStart[g] + 1;
-     int nj = m_jEnd[g] - m_jStart[g] + 1;
-     int nk = m_kEnd[g] - m_kStart[g] + 1;
-
-     // If we have a free surface, the other kernels start at k=8 instead of 2,
-     // the free surface will compute k=[2:7]
-     int startk;
-     if( m_onesided[g][4] )
-       startk = 8;
-     else
-       startk = 2;
-
-     if( m_sg_damping_order == 4 )
-       {
-         // X Halo (avoid the Y halos -> J=[4:NJ-5]
-         addsgd4_X_gpu  (2, ni-3, 4, nj-5, startk, nk-3,
-                         ni, nj, nk,
-                         a_Up[g].dev_ptr(),  a_U[g].dev_ptr(), a_Um[g].dev_ptr(), a_Rho[g].dev_ptr(),
-                         dev_sg_dc_x[g], dev_sg_dc_y[g], dev_sg_dc_z[g],
-                         dev_sg_str_x[g], dev_sg_str_y[g], dev_sg_str_z[g],
-                         dev_sg_corner_x[g], dev_sg_corner_y[g], dev_sg_corner_z[g],
-                         m_supergrid_damping_coefficient, m_corder, m_cuobj->m_stream[st]);
-         // Y halo
-         addsgd4_Y_gpu  (2, ni-3, 2, nj-3, startk, nk-3,
-                         ni, nj, nk,
-                         a_Up[g].dev_ptr(),  a_U[g].dev_ptr(), a_Um[g].dev_ptr(), a_Rho[g].dev_ptr(),
-                         dev_sg_dc_x[g], dev_sg_dc_y[g], dev_sg_dc_z[g],
-                         dev_sg_str_x[g], dev_sg_str_y[g], dev_sg_str_z[g],
-                         dev_sg_corner_x[g], dev_sg_corner_y[g], dev_sg_corner_z[g],
-                         m_supergrid_damping_coefficient, m_corder, m_cuobj->m_stream[st]);
-         
-         // Free surface k=[2:7]
-         if( m_onesided[g][4] )
-           addsgd4_gpu  (2, ni-3, 2, nj-3, 2, 7,
-                         ni, nj, nk,
-                         a_Up[g].dev_ptr(),  a_U[g].dev_ptr(), a_Um[g].dev_ptr(), a_Rho[g].dev_ptr(),
-                         dev_sg_dc_x[g], dev_sg_dc_y[g], dev_sg_dc_z[g],
-                         dev_sg_str_x[g], dev_sg_str_y[g], dev_sg_str_z[g],
-                         dev_sg_corner_x[g], dev_sg_corner_y[g], dev_sg_corner_z[g],
-                         m_supergrid_damping_coefficient, m_corder, m_cuobj->m_stream[st]);
-         CHECK_ERROR("addsgd4_gpu");
-       }
-     else if(  m_sg_damping_order == 6 )
-       {
-         // TBD
-         CHECK_ERROR("addsgd6_gpu");
-       }
-   }
-#endif
-}
-
-//---------------------------------------------------------------------------
-void EW::addSuperGridDampingCU_center(vector<Sarray> & a_Up, vector<Sarray> & a_U,
-                                      vector<Sarray> & a_Um, vector<Sarray> & a_Rho, int st )
-{
-#ifdef SW4_CUDA
-  for(int g=0 ; g<mNumberOfGrids; g++ )
-   {
-     int ni = m_iEnd[g] - m_iStart[g] + 1;
-     int nj = m_jEnd[g] - m_jStart[g] + 1;
-     int nk = m_kEnd[g] - m_kStart[g] + 1;
-     // If we have a free surface, the other kernels start at k=8 instead of 2,
-     // the free surface will compute k=[2:7]
-     int startk;
-     if( m_onesided[g][4] )
-       startk = 8;
-     else
-       startk = 2;
-     if( m_sg_damping_order == 4 )
-       {
-         addsgd4_gpu( 4, ni-5, 4, nj-5, startk, nk-3,
-                      ni, nj, nk,
-                      a_Up[g].dev_ptr(),  a_U[g].dev_ptr(), a_Um[g].dev_ptr(), a_Rho[g].dev_ptr(),
-                      dev_sg_dc_x[g], dev_sg_dc_y[g], dev_sg_dc_z[g],
-                      dev_sg_str_x[g], dev_sg_str_y[g], dev_sg_str_z[g],
-                      dev_sg_corner_x[g], dev_sg_corner_y[g], dev_sg_corner_z[g],
-                      m_supergrid_damping_coefficient, m_corder, m_cuobj->m_stream[st]);
-         CHECK_ERROR("addsgd4_dev");
-       }
-     else if(  m_sg_damping_order == 6 )
-       {
-         // TBD
-         CHECK_ERROR("addsgd6_gpu");
-       }
-   }
-#endif
-}
-
-//-----------------------------------------------------------------------
-void EW::evalRHSCU(vector<Sarray> & a_U, vector<Sarray>& a_Mu, vector<Sarray>& a_Lambda,
-		   vector<Sarray> & a_Uacc, int st )
-{
-#ifdef SW4_CUDA
-   dim3 gridsize, blocksize;
-   gridsize.x  = m_gpu_gridsize[0];
-   gridsize.y  = m_gpu_gridsize[1];
-   gridsize.z  = m_gpu_gridsize[2];
-   blocksize.x = m_gpu_blocksize[0];
-   blocksize.y = m_gpu_blocksize[1];
-   blocksize.z = m_gpu_blocksize[2];
-   for(int g=0 ; g<mNumberOfCartesianGrids; g++ )
-   {
-      if( m_corder ) 
-      {
-#if 1
-        int ni = m_iEnd[g] - m_iStart[g] + 1 - 2*m_ghost_points;
-        int nj = m_jEnd[g] - m_jStart[g] + 1 - 2*m_ghost_points;
-        int nk = m_kEnd[g] - m_kStart[g] + 1 - 2*m_ghost_points;
-        dim3 block(RHS4_BLOCKX,RHS4_BLOCKY);
-        dim3 grid;
-        grid.x = (ni + block.x - 1) / block.x;
-        grid.y = (nj + block.y - 1) / block.y;
-        grid.z = 1;
-        rhs4center_dev_rev_v2<<<grid,block,0,m_cuobj->m_stream[st]>>>
-          ( m_iStart[g], m_iEnd[g], m_jStart[g], m_jEnd[g], m_kStart[g],
-            m_kEnd[g], a_Uacc[g].dev_ptr(), a_U[g].dev_ptr(), a_Mu[g].dev_ptr(),
-            a_Lambda[g].dev_ptr(), mGridSize[g],
-            dev_sg_str_x[g], dev_sg_str_y[g], dev_sg_str_z[g], m_ghost_points );
-#else
-        rhs4center_dev_rev<<<gridsize,blocksize,0,m_cuobj->m_stream[st]>>>
-                ( m_iStart[g], m_iEnd[g], m_jStart[g], m_jEnd[g], m_kStart[g],
-                m_kEnd[g], a_Uacc[g].dev_ptr(), a_U[g].dev_ptr(), a_Mu[g].dev_ptr(),
-                  a_Lambda[g].dev_ptr(), mGridSize[g],
-                  dev_sg_str_x[g], dev_sg_str_y[g], dev_sg_str_z[g], m_ghost_points );
-#endif
-        CHECK_ERROR("rhs4center_dev")
-      }
-      else
-      {
-        int ni = m_iEnd[g] - m_iStart[g] + 1 - 2*m_ghost_points;
-        int nj = m_jEnd[g] - m_jStart[g] + 1 - 2*m_ghost_points;
-        int nk = m_kEnd[g] - m_kStart[g] + 1 - 2*m_ghost_points;
-        dim3 block(RHS4_BLOCKX,RHS4_BLOCKY);
-        dim3 grid;
-        grid.x = (ni + block.x - 1) / block.x;
-        grid.y = (nj + block.y - 1) / block.y;
-        grid.z = 1;
-        rhs4center_dev_v2<<<grid,block,0,m_cuobj->m_stream[st]>>>
-	 ( m_iStart[g], m_iEnd[g], m_jStart[g], m_jEnd[g], m_kStart[g],
-	   m_kEnd[g], a_Uacc[g].dev_ptr(), a_U[g].dev_ptr(), a_Mu[g].dev_ptr(),
-	   a_Lambda[g].dev_ptr(), mGridSize[g],
-	   dev_sg_str_x[g], dev_sg_str_y[g], dev_sg_str_z[g], m_ghost_points );
-      }
-      CHECK_ERROR("rhs4center_dev")
-   }
-// Boundary operator at upper boundary
-   blocksize.z = 1;
-   gridsize.z  = 6;
-
-   for(int g=0 ; g<mNumberOfCartesianGrids; g++ )
-   {
-      if( m_onesided[g][4] )
-      {
-	 if( m_corder )
-	    rhs4upper_dev_rev<<<gridsize,blocksize,0,m_cuobj->m_stream[st]>>>
-	    ( m_iStart[g], m_iEnd[g], m_jStart[g], m_jEnd[g], m_kStart[g],  m_kEnd[g],
-	      a_Uacc[g].dev_ptr(), a_U[g].dev_ptr(), a_Mu[g].dev_ptr(),
-	      a_Lambda[g].dev_ptr(), mGridSize[g],
-	      dev_sg_str_x[g], dev_sg_str_y[g], dev_sg_str_z[g], m_ghost_points );
-	 else
-	    rhs4upper_dev<<<gridsize,blocksize,0,m_cuobj->m_stream[st]>>>
-	    ( m_iStart[g], m_iEnd[g], m_jStart[g], m_jEnd[g], m_kStart[g],  m_kEnd[g],
-	      a_Uacc[g].dev_ptr(), a_U[g].dev_ptr(), a_Mu[g].dev_ptr(),
-	      a_Lambda[g].dev_ptr(), mGridSize[g],
-	      dev_sg_str_x[g], dev_sg_str_y[g], dev_sg_str_z[g], m_ghost_points );
-      }
-      CHECK_ERROR("evalRHSCU_upper")
-   }
-
-   if( m_topography_exists )
-   {
-      gridsize.x  = m_gpu_gridsize[0];
-      gridsize.y  = m_gpu_gridsize[1];
-      gridsize.z  = m_gpu_gridsize[2];
-      blocksize.x = m_gpu_blocksize[0];
-      blocksize.y = m_gpu_blocksize[1];
-      blocksize.z = m_gpu_blocksize[2];
-      int g=mNumberOfGrids-1;
-   // Boundary operator at upper boundary
-      int onesided4 = 0;  
-      if( m_onesided[g][4] )
-      {
-        onesided4 = 1;
-        blocksize.z = 1;
-        gridsize.z  = 6;
-        if( m_corder )
-  	  rhs4sgcurvupper_dev_rev<<<gridsize,blocksize,0,m_cuobj->m_stream[st]>>>
-	          ( m_iStart[g], m_iEnd[g], m_jStart[g], m_jEnd[g], m_kStart[g],
-	          m_kEnd[g], a_U[g].dev_ptr(), a_Mu[g].dev_ptr(), a_Lambda[g].dev_ptr(),
-	          mMetric.dev_ptr(), mJ.dev_ptr(), a_Uacc[g].dev_ptr(), 
-	          dev_sg_str_x[g], dev_sg_str_y[g], m_ghost_points );
-        else
-	  rhs4sgcurvupper_dev<<<gridsize,blocksize,0,m_cuobj->m_stream[st]>>>
-	          ( m_iStart[g], m_iEnd[g], m_jStart[g], m_jEnd[g], m_kStart[g],
-	          m_kEnd[g], a_U[g].dev_ptr(), a_Mu[g].dev_ptr(), a_Lambda[g].dev_ptr(),
-	          mMetric.dev_ptr(), mJ.dev_ptr(), a_Uacc[g].dev_ptr(), 
-	          dev_sg_str_x[g], dev_sg_str_y[g], m_ghost_points );
-        CHECK_ERROR("rhs4sgcurvupper")
-      }
-      gridsize.z  = m_gpu_gridsize[2];
-      blocksize.z = m_gpu_blocksize[2];
-      if( m_corder )
-      {
-#if 1
-        int ni = m_iEnd[g] - m_iStart[g] + 1 - 2*m_ghost_points;
-        int nj = m_jEnd[g] - m_jStart[g] + 1 - 2*m_ghost_points;
-        int nk = m_kEnd[g] - m_kStart[g] + 1 - 2*m_ghost_points;
-        dim3 block(RHS4_BLOCKX,RHS4_BLOCKY);
-        dim3 grid;
-        grid.x = (ni + block.x - 1) / block.x;
-        grid.y = (nj + block.y - 1) / block.y;
-        grid.z = 1;
-	rhs4sgcurv_dev_rev_v2<<<grid,block,0,m_cuobj->m_stream[st]>>>
-	        ( m_iStart[g], m_iEnd[g], m_jStart[g], m_jEnd[g], m_kStart[g],
-	        m_kEnd[g], a_U[g].dev_ptr(), a_Mu[g].dev_ptr(), a_Lambda[g].dev_ptr(),
-	        mMetric.dev_ptr(), mJ.dev_ptr(), a_Uacc[g].dev_ptr(), 
-	        onesided4, dev_sg_str_x[g], dev_sg_str_y[g], m_ghost_points );
-#else
-	rhs4sgcurv_dev_rev<<<gridsize,blocksize,0,m_cuobj->m_stream[st]>>>
-	        ( m_iStart[g], m_iEnd[g], m_jStart[g], m_jEnd[g], m_kStart[g],
-	        m_kEnd[g], a_U[g].dev_ptr(), a_Mu[g].dev_ptr(), a_Lambda[g].dev_ptr(),
-	        mMetric.dev_ptr(), mJ.dev_ptr(), a_Uacc[g].dev_ptr(), 
-	        onesided4, dev_sg_str_x[g], dev_sg_str_y[g], m_ghost_points );
-#endif
-      }
-      else
-	rhs4sgcurv_dev<<<gridsize,blocksize,0,m_cuobj->m_stream[st]>>>
-	        ( m_iStart[g], m_iEnd[g], m_jStart[g], m_jEnd[g], m_kStart[g],
-	        m_kEnd[g], a_U[g].dev_ptr(), a_Mu[g].dev_ptr(), a_Lambda[g].dev_ptr(),
-	        mMetric.dev_ptr(), mJ.dev_ptr(), a_Uacc[g].dev_ptr(), 
-	        onesided4, dev_sg_str_x[g], dev_sg_str_y[g], m_ghost_points );
-      CHECK_ERROR("rhs4sgcurv")
-   }
-#endif
-}
-
-//-----------------------------------------------------------------------
-void EW::evalPredictorCU( vector<Sarray> & a_Up, vector<Sarray> & a_U, vector<Sarray> & a_Um,
-			  vector<Sarray>& a_Rho, vector<Sarray> & a_Lu, vector<Sarray> & a_F, int st )
-//			  vector<Sarray>& a_Rho, vector<Sarray> & a_Lu, Sarray* a_F, int st )
-{
-#ifdef SW4_CUDA
-   float_sw4 dt2 = mDt*mDt;
-   dim3 gridsize, blocksize;
-   gridsize.x  = m_gpu_gridsize[0] * m_gpu_gridsize[1] * m_gpu_gridsize[2];
-   gridsize.y  = 1;
-   gridsize.z  = 1;
-   blocksize.x = m_gpu_blocksize[0] * m_gpu_blocksize[1] * m_gpu_blocksize[2];
-   blocksize.y = 1;
-   blocksize.z = 1;
-   for( int g=0 ; g<mNumberOfGrids; g++ )
-   {
-      if( m_corder )
-	 pred_dev_rev<<<gridsize,blocksize,0,m_cuobj->m_stream[st]>>>( m_iStart[g], m_iEnd[g], m_jStart[g], m_jEnd[g],
-								   m_kStart[g], m_kEnd[g], a_Up[g].dev_ptr(), a_U[g].dev_ptr(),
-								   a_Um[g].dev_ptr(), a_Lu[g].dev_ptr(), a_F[g].dev_ptr(),
-								   a_Rho[g].dev_ptr(), dt2, m_ghost_points );
-      else
-	 pred_dev<<<gridsize,blocksize,0,m_cuobj->m_stream[st]>>>( m_iStart[g], m_iEnd[g], m_jStart[g], m_jEnd[g],
-								   m_kStart[g], m_kEnd[g], a_Up[g].dev_ptr(), a_U[g].dev_ptr(),
-								   a_Um[g].dev_ptr(), a_Lu[g].dev_ptr(), a_F[g].dev_ptr(),
-								   a_Rho[g].dev_ptr(), dt2, m_ghost_points );
-      CHECK_ERROR("evalPredictorCU")
-   }
-#endif
-}
-
-//---------------------------------------------------------------------------
-void EW::evalCorrectorCU( vector<Sarray> & a_Up, vector<Sarray>& a_Rho,
-			  vector<Sarray> & a_Lu, vector<Sarray> & a_F, int st )
-//			  vector<Sarray> & a_Lu, Sarray* a_F, int st )
-{
-#ifdef SW4_CUDA
-   float_sw4 dt4 = mDt*mDt*mDt*mDt;  
-   dim3 gridsize, blocksize;
-   gridsize.x  = m_gpu_gridsize[0] * m_gpu_gridsize[1] * m_gpu_gridsize[2];
-   gridsize.y  = 1;
-   gridsize.z  = 1;
-   blocksize.x = m_gpu_blocksize[0] * m_gpu_blocksize[1] * m_gpu_blocksize[2];
-   blocksize.y = 1;
-   blocksize.z = 1;
-   for( int g=0 ; g<mNumberOfGrids; g++ )
-   {
-      if( m_corder )
-	 corr_dev_rev<<<gridsize,blocksize,0,m_cuobj->m_stream[st]>>>( m_iStart[g], m_iEnd[g], m_jStart[g], m_jEnd[g],
-								m_kStart[g], m_kEnd[g], a_Up[g].dev_ptr(), a_Lu[g].dev_ptr(),
-								a_F[g].dev_ptr(), a_Rho[g].dev_ptr(), dt4,
-								m_ghost_points );
-      else
-	 corr_dev<<<gridsize,blocksize,0,m_cuobj->m_stream[st]>>>( m_iStart[g], m_iEnd[g], m_jStart[g], m_jEnd[g],
-								m_kStart[g], m_kEnd[g], a_Up[g].dev_ptr(), a_Lu[g].dev_ptr(),
-								a_F[g].dev_ptr(), a_Rho[g].dev_ptr(), dt4,
-								m_ghost_points );
-      CHECK_ERROR("evalCorrectorCU")
-   }
-#endif
-}
-
-//---------------------------------------------------------------------------
 void EW::evalDpDmInTimeCU(vector<Sarray> & a_Up, vector<Sarray> & a_U, vector<Sarray> & a_Um,
 			  vector<Sarray> & a_Uacc, int st )
 {
@@ -548,162 +78,6 @@ void EW::evalDpDmInTimeCU(vector<Sarray> & a_Up, vector<Sarray> & a_U, vector<Sa
    }
 #endif
 }
-
-#if 0
-//---------------------------------------------------------------------------
-void EW::addSuperGridDampingCU(vector<Sarray> & a_Up, vector<Sarray> & a_U,
-                               vector<Sarray> & a_Um, vector<Sarray> & a_Rho, int st )
-{
-#ifdef SW4_CUDA
-  for(int g=0 ; g<mNumberOfGrids; g++ )
-   {
-     int ni = m_iEnd[g] - m_iStart[g] + 1;
-     int nj = m_jEnd[g] - m_jStart[g] + 1;
-     int nk = m_kEnd[g] - m_kStart[g] + 1;
-     if( m_sg_damping_order == 4 )
-       {
-         addsgd4_gpu  (2, ni-3, 2, nj-3, 2, nk-3,
-                       ni, nj, nk,
-                       a_Up[g].dev_ptr(),  a_U[g].dev_ptr(), a_Um[g].dev_ptr(), a_Rho[g].dev_ptr(),
-                       dev_sg_dc_x[g], dev_sg_dc_y[g], dev_sg_dc_z[g],
-                       dev_sg_str_x[g], dev_sg_str_y[g], dev_sg_str_z[g],
-                       dev_sg_corner_x[g], dev_sg_corner_y[g], dev_sg_corner_z[g],
-                       m_supergrid_damping_coefficient, m_corder, m_cuobj->m_stream[st]);
-         CHECK_ERROR("addsgd4_dev");
-       }
-     else if(  m_sg_damping_order == 6 )
-       {
-         // TBD
-         CHECK_ERROR("addsgd6_gpu");
-       }
-   }
-#endif
-}
-#else
-//-----------------------------------------------------------------------
-void EW::addSuperGridDampingCU(vector<Sarray> & a_Up, vector<Sarray> & a_U,
-			     vector<Sarray> & a_Um, vector<Sarray> & a_Rho, int st )
-{
-#ifdef SW4_CUDA
-   dim3 gridsize, blocksize;
-   gridsize.x  = m_gpu_gridsize[0];
-   gridsize.y  = m_gpu_gridsize[1];
-   gridsize.z  = m_gpu_gridsize[2];
-   blocksize.x = m_gpu_blocksize[0];
-   blocksize.y = m_gpu_blocksize[1];
-   blocksize.z = m_gpu_blocksize[2];
-   for(int g=0 ; g<mNumberOfCartesianGrids; g++ )
-   {
-      if( m_sg_damping_order == 4 )
-      {
-	 if( m_corder )
-         {
-           int ni = m_iEnd[g] - m_iStart[g] + 1 - 2*m_ghost_points;
-           int nj = m_jEnd[g] - m_jStart[g] + 1 - 2*m_ghost_points;
-           int nk = m_kEnd[g] - m_kStart[g] + 1 - 2*m_ghost_points;
-           const dim3 block(ADDSGD4_BLOCKX,ADDSGD4_BLOCKY,1);
-           dim3 grid;
-           grid.x = (ni + block.x - 1) / block.x;
-           grid.y = (nj + block.y - 1) / block.y;
-           grid.z = 1; 
-           addsgd4_dev_rev_v2<<<grid,block,0,m_cuobj->m_stream[st]>>>(
-             m_iStart[g], m_iEnd[g], m_jStart[g], m_jEnd[g],
-             m_kStart[g], m_kEnd[g], a_Up[g].dev_ptr(),
-             a_U[g].dev_ptr(), a_Um[g].dev_ptr(), a_Rho[g].dev_ptr(),
-             dev_sg_dc_x[g], dev_sg_dc_y[g], dev_sg_dc_z[g],
-             dev_sg_str_x[g], dev_sg_str_y[g], dev_sg_str_z[g],
-             dev_sg_corner_x[g], dev_sg_corner_y[g], dev_sg_corner_z[g],
-             m_supergrid_damping_coefficient, m_ghost_points );
-           CHECK_ERROR("addsgd4_dev_rev");
-         }
-	 else
-         {
-           int ni = m_iEnd[g] - m_iStart[g] + 1 - 2*m_ghost_points;
-           int nj = m_jEnd[g] - m_jStart[g] + 1 - 2*m_ghost_points;
-           int nk = m_kEnd[g] - m_kStart[g] + 1 - 2*m_ghost_points;
-           const dim3 block(ADDSGD4_BLOCKX,ADDSGD4_BLOCKY,1);
-           dim3 grid;
-           grid.x = (ni + block.x - 1) / block.x;
-           grid.y = (nj + block.y - 1) / block.y;
-           grid.z = 1; 
-           addsgd4_dev_v2<<<grid,block,0,m_cuobj->m_stream[st]>>>(
-             m_iStart[g], m_iEnd[g], m_jStart[g], m_jEnd[g],
-             m_kStart[g], m_kEnd[g], a_Up[g].dev_ptr(),
-             a_U[g].dev_ptr(), a_Um[g].dev_ptr(), a_Rho[g].dev_ptr(),
-             dev_sg_dc_x[g], dev_sg_dc_y[g], dev_sg_dc_z[g],
-             dev_sg_str_x[g], dev_sg_str_y[g], dev_sg_str_z[g],
-             dev_sg_corner_x[g], dev_sg_corner_y[g], dev_sg_corner_z[g],
-             m_supergrid_damping_coefficient, m_ghost_points );
-           CHECK_ERROR("addsgd4_dev_rev");
-          }
-      }
-      else if(  m_sg_damping_order == 6 )
-      {
-	 if( m_corder )
-	    addsgd6_dev_rev<<<gridsize,blocksize,0,m_cuobj->m_stream[st]>>>( m_iStart[g], m_iEnd[g], m_jStart[g], m_jEnd[g],
-								      m_kStart[g], m_kEnd[g], a_Up[g].dev_ptr(), 
-                                                                      a_U[g].dev_ptr(), a_Um[g].dev_ptr(), a_Rho[g].dev_ptr(),
-								      dev_sg_dc_x[g], dev_sg_dc_y[g], dev_sg_dc_z[g],
-								      dev_sg_str_x[g], dev_sg_str_y[g], dev_sg_str_z[g],
-								      dev_sg_corner_x[g], dev_sg_corner_y[g], dev_sg_corner_z[g],
-								      m_supergrid_damping_coefficient, m_ghost_points );
-	 else
-	    addsgd6_dev<<<gridsize,blocksize,0,m_cuobj->m_stream[st]>>>( m_iStart[g], m_iEnd[g], m_jStart[g], m_jEnd[g],
-								      m_kStart[g], m_kEnd[g], a_Up[g].dev_ptr(), 
-                                                                      a_U[g].dev_ptr(), a_Um[g].dev_ptr(), a_Rho[g].dev_ptr(),
-								      dev_sg_dc_x[g], dev_sg_dc_y[g], dev_sg_dc_z[g],
-								      dev_sg_str_x[g], dev_sg_str_y[g], dev_sg_str_z[g],
-								      dev_sg_corner_x[g], dev_sg_corner_y[g], dev_sg_corner_z[g],
-								      m_supergrid_damping_coefficient, m_ghost_points );
-	 CHECK_ERROR("addsgd6_dev")
-      }
-   }
-
-   if( m_topography_exists )
-   {
-      int g=mNumberOfGrids-1;
-      if( m_sg_damping_order == 4 )
-      {
-	 if( m_corder )
-            addsgd4c_dev_rev<<<gridsize,blocksize,0,m_cuobj->m_stream[st]>>>(
-              m_iStart[g], m_iEnd[g], m_jStart[g], m_jEnd[g], m_kStart[g], m_kEnd[g], 
-              a_Up[g].dev_ptr(), a_U[g].dev_ptr(), 
-              a_Um[g].dev_ptr(), a_Rho[g].dev_ptr(),
-              dev_sg_dc_x[g], dev_sg_dc_y[g], 
-              dev_sg_str_x[g], dev_sg_str_y[g], 
-              mJ.dev_ptr(), dev_sg_corner_x[g], dev_sg_corner_y[g], 
-              m_supergrid_damping_coefficient, m_ghost_points );
-	 else
-            addsgd4c_dev<<<gridsize,blocksize,0,m_cuobj->m_stream[st]>>>(
-              m_iStart[g], m_iEnd[g], m_jStart[g], m_jEnd[g], m_kStart[g], m_kEnd[g], 
-              a_Up[g].dev_ptr(), a_U[g].dev_ptr(), 
-              a_Um[g].dev_ptr(), a_Rho[g].dev_ptr(),
-              dev_sg_dc_x[g], dev_sg_dc_y[g], 
-              dev_sg_str_x[g], dev_sg_str_y[g], 
-              mJ.dev_ptr(), dev_sg_corner_x[g], dev_sg_corner_y[g], 
-              m_supergrid_damping_coefficient, m_ghost_points );
-      }
-      else if(  m_sg_damping_order == 6 )
-      {
-	 if( m_corder )
-	    addsgd6c_dev_rev<<<gridsize,blocksize,0,m_cuobj->m_stream[st]>>>( 
-              m_iStart[g], m_iEnd[g], m_jStart[g], m_jEnd[g], m_kStart[g], m_kEnd[g], 
-              a_Up[g].dev_ptr(), a_U[g].dev_ptr(), a_Um[g].dev_ptr(), a_Rho[g].dev_ptr(),
-	      dev_sg_dc_x[g], dev_sg_dc_y[g], dev_sg_str_x[g], dev_sg_str_y[g], 
-	      mJ.dev_ptr(), dev_sg_corner_x[g], dev_sg_corner_y[g], 
-              m_supergrid_damping_coefficient, m_ghost_points );
-	 else
-	    addsgd6c_dev<<<gridsize,blocksize,0,m_cuobj->m_stream[st]>>>( 
-              m_iStart[g], m_iEnd[g], m_jStart[g], m_jEnd[g], m_kStart[g], m_kEnd[g], 
-              a_Up[g].dev_ptr(), a_U[g].dev_ptr(), a_Um[g].dev_ptr(), a_Rho[g].dev_ptr(),
-	      dev_sg_dc_x[g], dev_sg_dc_y[g], dev_sg_str_x[g], dev_sg_str_y[g], 
-	      mJ.dev_ptr(), dev_sg_corner_x[g], dev_sg_corner_y[g], 
-              m_supergrid_damping_coefficient, m_ghost_points );
-      }
-   }
-#endif
-}
-#endif
 
 //-----------------------------------------------------------------------
 void EW::setupSBPCoeff()
@@ -1045,20 +419,775 @@ void EW::init_point_sourcesCU( )
 #endif
 }
 
+
+//-----------------------------------------------------------------------
+void EW::enforceBCCU( vector<Sarray> & a_U, vector<Sarray>& a_Mu, vector<Sarray>& a_Lambda,
+                      float_sw4 t, vector<float_sw4**> & a_BCForcing, int st )
+{
+#ifdef SW4_CUDA
+  dim3 gridsize, blocksize;
+  gridsize.x  = m_gpu_gridsize[0];
+  gridsize.y  = m_gpu_gridsize[1];
+  gridsize.z  = m_gpu_gridsize[2];
+  blocksize.x = m_gpu_blocksize[0];
+  blocksize.y = m_gpu_blocksize[1];
+  blocksize.z = m_gpu_blocksize[2];
+
+  float_sw4 om=0, ph=0, cv=0;
+  for(int g=0 ; g<mNumberOfGrids; g++ )
+  {
+    if( m_corder )
+      bcfortsg_dev_indrev<<<gridsize, blocksize, 0, m_cuobj->m_stream[st]>>>( m_iStart[g], m_iEnd[g], m_jStart[g], m_jEnd[g], m_kStart[g], m_kEnd[g],
+                                                                              dev_BndryWindow[g], m_global_nx[g], m_global_ny[g], m_global_nz[g], a_U[g].dev_ptr(),
+                                                                              mGridSize[g], dev_bcType[g], a_Mu[g].dev_ptr(), a_Lambda[g].dev_ptr(),
+                                                                              t, dev_BCForcing[g][0], dev_BCForcing[g][1], dev_BCForcing[g][2],
+                                                                              dev_BCForcing[g][3], dev_BCForcing[g][4], dev_BCForcing[g][5],
+                                                                              om, ph, cv, dev_sg_str_x[g], dev_sg_str_y[g] );
+    else
+      bcfortsg_dev<<<gridsize, blocksize, 0, m_cuobj->m_stream[st]>>>( m_iStart[g], m_iEnd[g], m_jStart[g], m_jEnd[g], m_kStart[g], m_kEnd[g],
+                                                                       dev_BndryWindow[g], m_global_nx[g], m_global_ny[g], m_global_nz[g], a_U[g].dev_ptr(),
+                                                                       mGridSize[g], dev_bcType[g], a_Mu[g].dev_ptr(), a_Lambda[g].dev_ptr(),
+                                                                       t, dev_BCForcing[g][0], dev_BCForcing[g][1], dev_BCForcing[g][2],
+                                                                       dev_BCForcing[g][3], dev_BCForcing[g][4], dev_BCForcing[g][5],
+                                                                       om, ph, cv, dev_sg_str_x[g], dev_sg_str_y[g] );
+
+      if( m_topography_exists && g == mNumberOfGrids-1 && m_bcType[g][4] == bStressFree )
+      {
+	 int side = 5;
+         gridsize.z = 1;
+         blocksize.z = 1;
+	 if( m_corder )
+           freesurfcurvisg_dev_rev<<<gridsize, blocksize, 0, m_cuobj->m_stream[st]>>>( m_iStart[g], m_iEnd[g], m_jStart[g], m_jEnd[g], m_kStart[g], m_kEnd[g],
+                                                                               m_global_nz[g], side, a_U[g].dev_ptr(), a_Mu[g].dev_ptr(),
+                                                                               a_Lambda[g].dev_ptr(), mMetric.dev_ptr(),  
+                                                                              dev_BCForcing[g][4], dev_sg_str_x[g], dev_sg_str_y[g], m_ghost_points );
+	 else
+           freesurfcurvisg_dev<<<gridsize, blocksize, 0, m_cuobj->m_stream[st]>>>( m_iStart[g], m_iEnd[g], m_jStart[g], m_jEnd[g], m_kStart[g], m_kEnd[g],
+                                                                               m_global_nz[g], side, a_U[g].dev_ptr(), a_Mu[g].dev_ptr(),
+                                                                               a_Lambda[g].dev_ptr(), mMetric.dev_ptr(),  
+                                                                              dev_BCForcing[g][4], dev_sg_str_x[g], dev_sg_str_y[g], m_ghost_points );
+      }
+
+  }
+  if (m_topography_exists)
+  {
+    gridsize.z = 1;
+    blocksize.z = 1;
+    int g = mNumberOfCartesianGrids-1;
+    int gc = mNumberOfGrids-1; 
+    if( m_corder )
+      enforceCartTopo_dev_rev<<<gridsize, blocksize, 0, m_cuobj->m_stream[st]>>>(m_iStart[g], m_iEnd[g], m_jStart[g], m_jEnd[g], m_kStart[g], m_kEnd[g],
+                             m_iStart[gc], m_iEnd[gc], m_jStart[gc], m_jEnd[gc], m_kStart[gc], m_kEnd[gc],  
+                             a_U[g].dev_ptr(), a_U[gc].dev_ptr(), m_ghost_points);
+   else
+      enforceCartTopo_dev<<<gridsize, blocksize, 0, m_cuobj->m_stream[st]>>>(m_iStart[g], m_iEnd[g], m_jStart[g], m_jEnd[g], m_kStart[g], m_kEnd[g], 
+                          m_iStart[gc], m_iEnd[gc], m_jStart[gc], m_jEnd[gc], m_kStart[gc], m_kEnd[gc],  
+                          a_U[g].dev_ptr(), a_U[gc].dev_ptr(), m_ghost_points);
+  }
+#endif
+}
+
+
+//-----------------------------------------------------------------------
+
+void EW::cartesian_bc_forcingCU( float_sw4 t, vector<float_sw4**> & a_BCForcing,
+                                 vector<Source*>& a_sources , int st)
+// assign the boundary forcing arrays dev_BCForcing[g][side]
+{
+#ifdef SW4_CUDA
+  cudaError_t retcode;
+  for(int g=0 ; g<mNumberOfGrids; g++ )
+  {
+    if( m_point_source_test )
+    {
+      for( int side=0 ; side < 6 ; side++ )
+      {
+        size_t nBytes = sizeof(float_sw4)*3*m_NumberOfBCPoints[g][side];
+        if( m_bcType[g][side] == bDirichlet )
+        {
+          get_exact_point_source( a_BCForcing[g][side], t, g, *a_sources[0], &m_BndryWindow[g][6*side] );
+          retcode = cudaMemcpyAsync( dev_BCForcing[g][side], a_BCForcing[g][side], nBytes, cudaMemcpyHostToDevice, m_cuobj->m_stream[st]);
+          if( retcode != cudaSuccess )
+            cout << "Error, EW::cartesian_bc_forcing_CU cudaMemcpy x returned " << cudaGetErrorString(retcode) << endl;
+        }
+        else
+        {
+          cudaMemsetAsync( dev_BCForcing[g][side], 0, nBytes , m_cuobj->m_stream[st]);
+        }
+      }
+    }
+    else
+    {
+      for( int side=0 ; side < 6 ; side++ )
+      {
+        size_t nBytes = sizeof(float_sw4)*3*m_NumberOfBCPoints[g][side];
+        cudaMemsetAsync( dev_BCForcing[g][side], 0, nBytes , m_cuobj->m_stream[st]);
+      }
+    }
+  }
+#endif
+}
+
+//-----------------------------------------------------------------------
+
+void EW::copy_bcforcing_arrays_to_device()
+{
+
+#ifdef SW4_CUDA
+   //Set up boundary data array on the deivec
+  if(m_ndevice > 0 )
+  {
+    cudaError_t retcode;
+    dev_BCForcing.resize(mNumberOfGrids);
+    for( int g = 0; g <mNumberOfGrids; g++ )
+    {
+      dev_BCForcing[g] = new float_sw4*[6];
+      for (int side=0; side < 6; side++)
+      {
+        dev_BCForcing[g][side] = NULL;
+        if (m_bcType[g][side] == bStressFree || m_bcType[g][side] == bDirichlet || m_bcType[g][side] == bSuperGrid)
+        {
+          size_t nBytes = sizeof(float_sw4)*3*m_NumberOfBCPoints[g][side];
+          retcode  = cudaMalloc((void**) &dev_BCForcing[g][side], nBytes );
+          if( retcode != cudaSuccess )
+          {
+             cout << "Error, EW::copy_bcforcing_arrays_to_device cudaMalloc x returned " << cudaGetErrorString(retcode) << endl;
+             exit(-1);
+          }
+          retcode = cudaMemcpy( dev_BCForcing[g][side], BCForcing[g][side], nBytes, cudaMemcpyHostToDevice );
+          if( retcode != cudaSuccess )
+          {
+            cout << "Error, EW::copy_bcforcing_arrays_to_device cudaMemcpy x returned " << cudaGetErrorString(retcode) << endl;
+            exit(-1);
+          }
+        }
+      }
+    }
+  }
+#endif
+}
+
+//-----------------------------------------------------------------------
+
+void EW::copy_bctype_arrays_to_device()
+{
+#ifdef SW4_CUDA
+  // Set up boundary type array on the deivec
+  if(m_ndevice > 0 )
+  {
+    cudaError_t retcode;
+    dev_bcType.resize(mNumberOfGrids);
+    for( int g = 0; g <mNumberOfGrids; g++ )
+    {
+      size_t nBytes = sizeof(boundaryConditionType)*6;
+      retcode = cudaMalloc( (void**) &dev_bcType[g], nBytes );
+      if( retcode != cudaSuccess )
+        cout << "Error, EW::copy_bctype_arrays_to_device cudaMalloc x returned " << cudaGetErrorString(retcode) << endl;
+      retcode = cudaMemcpy( dev_bcType[g], m_bcType[g], nBytes, cudaMemcpyHostToDevice );
+      if( retcode != cudaSuccess )
+        cout << "Error, EW::copy_bctype_arrays_to_device cudaMemcpy x returned " << cudaGetErrorString(retcode) << endl;
+    }
+  }
+#endif
+}
+
+//-----------------------------------------------------------------------
+
+void EW::copy_bndrywindow_arrays_to_device()
+{
+#ifdef SW4_CUDA
+  //Set up boundary window array on the deivec
+  if(m_ndevice > 0 )
+  {
+    cudaError_t retcode;
+    dev_BndryWindow.resize(mNumberOfGrids);
+    for( int g = 0; g <mNumberOfGrids; g++ )
+    {
+      size_t nBytes = sizeof(int)*36;
+      retcode = cudaMalloc( (void**) &dev_BndryWindow[g], nBytes );
+      if( retcode != cudaSuccess )
+        cout << "Error, EW::copy_bndrywindow_arrays_to_device cudaMalloc x returned " << cudaGetErrorString(retcode) << endl;
+      retcode = cudaMemcpy( dev_BndryWindow[g], m_BndryWindow[g], nBytes, cudaMemcpyHostToDevice );
+      if( retcode != cudaSuccess )
+        cout << "Error, EW::copy_bndrywindow_arrays_to_device cudaMemcpy x returned " << cudaGetErrorString(retcode) << endl;
+    }
+  }
+#endif
+}
+
+#if SW4_Guillaume
+//---------------------------------------------------------------------------
+void EW::RHSPredCU_upper_boundary(vector<Sarray> & a_Up, vector<Sarray> & a_U, vector<Sarray> & a_Um,
+                                  vector<Sarray>& a_Mu, vector<Sarray>& a_Lambda,
+                                  vector<Sarray>& a_Rho, vector<Sarray>& a_F, int st) {
+#ifdef SW4_CUDA
+  int ni, nj, nk, startk;
+
+  for(int g=0 ; g<mNumberOfCartesianGrids; g++ )
+    {
+      // Cube leading dimensions
+      ni = m_iEnd[g] - m_iStart[g] + 1;
+      nj = m_jEnd[g] - m_jStart[g] + 1;
+      nk = m_kEnd[g] - m_kStart[g] + 1;
+      
+      // If we have a free surface, the other kernels start at k=8 instead of 2,
+      // the free surface will compute k=[2:7]
+      if( m_onesided[g][4] )
+        startk = 8;
+      else
+        startk = 2;
+
+      // RHS and predictor in the X halos
+      rhs4_X_pred_gpu (2, ni-3, 4, nj-5, startk, nk-3,
+                       ni, nj, nk,
+                       a_Up[g].dev_ptr(), a_U[g].dev_ptr(), a_Um[g].dev_ptr(),
+                       a_Mu[g].dev_ptr(), a_Lambda[g].dev_ptr(), a_Rho[g].dev_ptr(), a_F[g].dev_ptr(),
+                       dev_sg_str_x[g], dev_sg_str_y[g], dev_sg_str_z[g],
+                       mGridSize[g], mDt, m_corder, m_cuobj->m_stream[st]);
+		   
+      // RHS and predictor in the Y halos
+      rhs4_Y_pred_gpu (2, ni-3, 2, nj-3, startk, nk-3,
+                       ni, nj, nk,
+                       a_Up[g].dev_ptr(), a_U[g].dev_ptr(), a_Um[g].dev_ptr(),
+                       a_Mu[g].dev_ptr(), a_Lambda[g].dev_ptr(), a_Rho[g].dev_ptr(), a_F[g].dev_ptr(),
+                       dev_sg_str_x[g], dev_sg_str_y[g], dev_sg_str_z[g],
+                       mGridSize[g], mDt, m_corder, m_cuobj->m_stream[st]);
+  
+      // Free surface and predictor
+      if( m_onesided[g][4] )
+        rhs4upper_pred_gpu (2, ni-3, 2, nj-3,
+                            ni, nj, nk,
+                            a_Up[g].dev_ptr(), a_U[g].dev_ptr(), a_Um[g].dev_ptr(),
+                            a_Mu[g].dev_ptr(), a_Lambda[g].dev_ptr(), a_Rho[g].dev_ptr(), a_F[g].dev_ptr(),
+                            dev_sg_str_x[g], dev_sg_str_y[g], dev_sg_str_z[g],
+                            mGridSize[g], mDt, m_corder, m_cuobj->m_stream[st]);
+
+      CHECK_ERROR("RHS4_Predictor_boundary")
+    }  
+#endif
+}  
+//-----------------------------------------------------------------------
+
+void EW::pack_HaloArrayCU( Sarray& u, int g , int st)
+{
+#ifdef SW4_CUDA
+  REQUIRE2( u.m_nc == 3 || u.m_nc == 1, "Communicate array, only implemented for one- and three-component arrays"
+	    << " nc = " << u.m_nc );
+  int ie = u.m_ie, ib=u.m_ib, je=u.m_je, jb=u.m_jb, kb=u.m_kb;//,ke=u.m_ke;
+  MPI_Status status;
+  dim3 gridsize, blocksize;
+  //gridsize.x  = m_gpu_gridsize[0] * m_gpu_gridsize[1] * m_gpu_gridsize[2];
+  gridsize.x  = 1 * 1 * m_gpu_gridsize[2];
+  gridsize.y  = 1;
+  gridsize.z  = 1;
+  blocksize.x = m_gpu_blocksize[0] * m_gpu_blocksize[1] * m_gpu_blocksize[2];
+  blocksize.y = 1;
+  blocksize.z = 1;
+
+  int ni = m_iEnd[g] - m_iStart[g] + 1;
+  int nj = m_jEnd[g] - m_jStart[g] + 1;
+  int nk = m_kEnd[g] - m_kStart[g] + 1;
+  int n_m_ppadding1 = 3*nj*nk*m_ppadding;
+  int n_m_ppadding2 = 3*ni*nk*m_ppadding;
+  int idx_left = 0;
+  int idx_right = n_m_ppadding2;
+  int idx_up = 2*n_m_ppadding2;
+  int idx_down = 2*n_m_ppadding2 + n_m_ppadding1;
+
+  if( u.m_nc == 3 )
+    {
+      // X-direction communication	 
+      if(m_corder)
+        BufferToHaloKernelX_dev_rev<<<gridsize, blocksize, 0, m_cuobj->m_stream[st]>>>
+          ( &u(1,ib,jb+m_ppadding,kb,true), &u(1,ib,je-(2*m_ppadding-1),kb,true),
+            &dev_SideEdge_Send[g][idx_left], &dev_SideEdge_Send[g][idx_right],
+            ni, nj, nk, m_ppadding, m_neighbor[2], m_neighbor[3], MPI_PROC_NULL );
+      else
+        BufferToHaloKernelX_dev<<<gridsize, blocksize, 0, m_cuobj->m_stream[st] >>>
+          ( &u(1,ib,jb+m_ppadding,kb,true), &u(1,ib,je-(2*m_ppadding-1),kb,true), 
+            &dev_SideEdge_Send[g][idx_left], &dev_SideEdge_Send[g][idx_right],
+            ni, nj, nk, m_ppadding, m_neighbor[2], m_neighbor[3], MPI_PROC_NULL );
+      CheckCudaCall(cudaGetLastError(), "BufferToHaloKernel<<<,>>>(...)", __FILE__, __LINE__);
+      
+      // Y-direction communication
+      if(m_corder)
+        BufferToHaloKernelY_dev_rev<<<gridsize, blocksize, 0, m_cuobj->m_stream[st]>>>
+          ( &u(1,ie-(2*m_ppadding-1),jb,kb,true), &u(1,ib+m_ppadding,jb,kb,true),
+            &dev_SideEdge_Send[g][idx_up], &dev_SideEdge_Send[g][idx_down],
+            ni, nj, nk, m_ppadding, m_neighbor[0], m_neighbor[1], MPI_PROC_NULL );
+      else
+        BufferToHaloKernelY_dev<<<gridsize, blocksize, 0, m_cuobj->m_stream[st]>>>
+          ( &u(1,ie-(2*m_ppadding-1),jb,kb,true), &u(1,ib+m_ppadding,jb,kb,true),
+            &dev_SideEdge_Send[g][idx_up], &dev_SideEdge_Send[g][idx_down],
+            ni, nj, nk, m_ppadding, m_neighbor[0],  m_neighbor[1], MPI_PROC_NULL );
+      CheckCudaCall(cudaGetLastError(), "BufferToHaloKernel<<<,>>>(...)", __FILE__, __LINE__);
+    }
+#endif
+}
+
+//-----------------------------------------------------------------------
+
+void EW::unpack_HaloArrayCU( Sarray& u, int g , int st)
+{
+#ifdef SW4_CUDA
+  REQUIRE2( u.m_nc == 3 || u.m_nc == 1, "Communicate array, only implemented for one- and three-component arrays"
+	    << " nc = " << u.m_nc );
+  int ie = u.m_ie, ib=u.m_ib, je=u.m_je, jb=u.m_jb, kb=u.m_kb;//,ke=u.m_ke;
+  MPI_Status status;
+  dim3 gridsize, blocksize;
+  //gridsize.x  = m_gpu_gridsize[0] * m_gpu_gridsize[1] * m_gpu_gridsize[2];
+  gridsize.x  = 1 * 1 * m_gpu_gridsize[2];
+  gridsize.y  = 1;
+  gridsize.z  = 1;
+  blocksize.x = m_gpu_blocksize[0] * m_gpu_blocksize[1] * m_gpu_blocksize[2];
+  blocksize.y = 1;
+  blocksize.z = 1;
+
+  int ni = m_iEnd[g] - m_iStart[g] + 1;
+  int nj = m_jEnd[g] - m_jStart[g] + 1;
+  int nk = m_kEnd[g] - m_kStart[g] + 1;
+  int n_m_ppadding1 = 3*nj*nk*m_ppadding;
+  int n_m_ppadding2 = 3*ni*nk*m_ppadding;
+  int idx_left = 0;
+  int idx_right = n_m_ppadding2;
+  int idx_up = 2*n_m_ppadding2;
+  int idx_down = 2*n_m_ppadding2 + n_m_ppadding1;
+
+  if( u.m_nc == 3 )
+    {
+      if(m_corder)
+        HaloToBufferKernelX_dev_rev<<<gridsize, blocksize, 0, m_cuobj->m_stream[st] >>>
+          ( &u(1,ib,jb,kb,true), &u(1,ib,je-(m_ppadding-1),kb,true),
+            &dev_SideEdge_Recv[g][idx_left], &dev_SideEdge_Recv[g][idx_right],
+            ni, nj, nk, m_ppadding, m_neighbor[2], m_neighbor[3], MPI_PROC_NULL );
+      else
+        HaloToBufferKernelX_dev<<<gridsize, blocksize, 0, m_cuobj->m_stream[st]>>>
+          ( &u(1,ib,jb,kb,true), &u(1,ib,je-(m_ppadding-1),kb,true),
+            &dev_SideEdge_Recv[g][idx_left], &dev_SideEdge_Recv[g][idx_right],
+            ni, nj, nk, m_ppadding, m_neighbor[2], m_neighbor[3], MPI_PROC_NULL );
+      CheckCudaCall(cudaGetLastError(), "HaloToBufferKernel<<<,>>>(...)", __FILE__, __LINE__);
+      
+      // Y-direction communication
+      if(m_corder)
+        HaloToBufferKernelY_dev_rev<<<gridsize, blocksize, 0, m_cuobj->m_stream[st]>>>
+          ( &u(1,ie-(m_ppadding-1),jb,kb,true), &u(1,ib,jb,kb,true),
+            &dev_SideEdge_Recv[g][idx_up], &dev_SideEdge_Recv[g][idx_down], ni, nj, nk, m_ppadding,
+            m_neighbor[0], m_neighbor[1], MPI_PROC_NULL );
+      else
+        HaloToBufferKernelY_dev<<<gridsize, blocksize, 0, m_cuobj->m_stream[st] >>>
+          ( &u(1,ie-(m_ppadding-1),jb,kb,true), &u(1,ib,jb,kb,true),
+            &dev_SideEdge_Recv[g][idx_up], &dev_SideEdge_Recv[g][idx_down], ni, nj, nk, m_ppadding,
+            m_neighbor[0],  m_neighbor[1], MPI_PROC_NULL );
+      CheckCudaCall(cudaGetLastError(), "HaloToBufferKernel<<<,>>>(...)", __FILE__, __LINE__);
+
+    }
+#endif
+}
+
+//---------------------------------------------------------------------------
+void EW::RHSPredCU_center(vector<Sarray> & a_Up, vector<Sarray> & a_U, vector<Sarray> & a_Um,
+                          vector<Sarray>& a_Mu, vector<Sarray>& a_Lambda,
+                          vector<Sarray>& a_Rho, vector<Sarray>& a_F, int st) {
+#ifdef SW4_CUDA
+  int ni, nj, nk, startk;
+
+  for(int g=0 ; g<mNumberOfCartesianGrids; g++ )
+    {
+      // Cube leading dimensions
+      ni = m_iEnd[g] - m_iStart[g] + 1;
+      nj = m_jEnd[g] - m_jStart[g] + 1;
+      nk = m_kEnd[g] - m_kStart[g] + 1;
+      
+      // If there's a free surface, start at k=8 instead of 2,
+      // the free surface will compute k=[2:7]
+      if( m_onesided[g][4] )
+        startk = 8;
+      else
+        startk = 2;
+
+      // RHS and predictor in center
+      rhs4_pred_gpu (4, ni-5, 4, nj-5, startk, nk-3,
+                     ni, nj, nk,
+                     a_Up[g].dev_ptr(), a_U[g].dev_ptr(), a_Um[g].dev_ptr(),
+                     a_Mu[g].dev_ptr(), a_Lambda[g].dev_ptr(), a_Rho[g].dev_ptr(), a_F[g].dev_ptr(),
+                     dev_sg_str_x[g], dev_sg_str_y[g], dev_sg_str_z[g],
+                     mGridSize[g], mDt, m_corder, m_cuobj->m_stream[st]);
+
+      CHECK_ERROR("RHS4_Predictor_rest")
+    }  
+#endif
+}  
+//---------------------------------------------------------------------------
+void EW::RHSCorrCU_upper_boundary(vector<Sarray> & a_Up, vector<Sarray> & a_U,
+                         vector<Sarray>& a_Mu, vector<Sarray>& a_Lambda,
+                         vector<Sarray>& a_Rho, vector<Sarray>& a_F, int st) {
+#ifdef SW4_CUDA
+  int ni, nj, nk, startk;
+
+  for(int g=0 ; g<mNumberOfCartesianGrids; g++ )
+    {
+      // Cube leading dimensions
+      ni = m_iEnd[g] - m_iStart[g] + 1;
+      nj = m_jEnd[g] - m_jStart[g] + 1;
+      nk = m_kEnd[g] - m_kStart[g] + 1;
+      
+      // If we have a free surface, the other kernels start at k=8 instead of 2,
+      // the free surface will compute k=[2:7]
+      if( m_onesided[g][4] )
+        startk = 8;
+      else
+        startk = 2;
+  
+      rhs4_X_corr_gpu (2, ni-3, 4, nj-5, startk, nk-3,
+                     ni, nj, nk,
+                     a_Up[g].dev_ptr(), a_U[g].dev_ptr(),
+                     a_Mu[g].dev_ptr(), a_Lambda[g].dev_ptr(), a_Rho[g].dev_ptr(), a_F[g].dev_ptr(),
+                     dev_sg_str_x[g], dev_sg_str_y[g], dev_sg_str_z[g],
+                     mGridSize[g], mDt, m_corder, m_cuobj->m_stream[st]);
+      rhs4_Y_corr_gpu (2, ni-3, 2, nj-3, startk, nk-3,
+                     ni, nj, nk,
+                     a_Up[g].dev_ptr(), a_U[g].dev_ptr(),
+                     a_Mu[g].dev_ptr(), a_Lambda[g].dev_ptr(), a_Rho[g].dev_ptr(), a_F[g].dev_ptr(),
+                     dev_sg_str_x[g], dev_sg_str_y[g], dev_sg_str_z[g],
+                     mGridSize[g], mDt, m_corder, m_cuobj->m_stream[st]);
+      // Free surface and corrector
+      if( m_onesided[g][4] )
+        rhs4upper_corr_gpu (2, ni-3, 2, nj-3,
+                            ni, nj, nk,
+                            a_Up[g].dev_ptr(), a_U[g].dev_ptr(),
+                            a_Mu[g].dev_ptr(), a_Lambda[g].dev_ptr(), a_Rho[g].dev_ptr(), a_F[g].dev_ptr(),
+                            dev_sg_str_x[g], dev_sg_str_y[g], dev_sg_str_z[g],
+                            mGridSize[g], mDt, m_corder, m_cuobj->m_stream[st]);
+
+      CHECK_ERROR("RHS4_Corrector_boundary")
+    }  
+#endif
+}  
+
+//---------------------------------------------------------------------------
+void EW::RHSCorrCU_center(vector<Sarray> & a_Up, vector<Sarray> & a_U,
+                         vector<Sarray>& a_Mu, vector<Sarray>& a_Lambda,
+                         vector<Sarray>& a_Rho, vector<Sarray>& a_F, int st) {
+#ifdef SW4_CUDA
+  int ni, nj, nk, startk;
+
+  for(int g=0 ; g<mNumberOfCartesianGrids; g++ )
+    {
+      // Cube leading dimensions
+      ni = m_iEnd[g] - m_iStart[g] + 1;
+      nj = m_jEnd[g] - m_jStart[g] + 1;
+      nk = m_kEnd[g] - m_kStart[g] + 1;
+      
+      // If we have a free surface, the other kernels start at k=8 instead of 2,
+      // the free surface will compute k=[2:7]
+      if( m_onesided[g][4] )
+        startk = 8;
+      else
+        startk = 2;
+  
+      // RHS and corrector in the rest of the cube
+      rhs4_corr_gpu (4, ni-5, 4, nj-5, startk, nk-3,
+                     ni, nj, nk,
+                     a_Up[g].dev_ptr(), a_U[g].dev_ptr(),
+                     a_Mu[g].dev_ptr(), a_Lambda[g].dev_ptr(), a_Rho[g].dev_ptr(), a_F[g].dev_ptr(),
+                     dev_sg_str_x[g], dev_sg_str_y[g], dev_sg_str_z[g],
+                     mGridSize[g], mDt, m_corder, m_cuobj->m_stream[st]);
+      CHECK_ERROR("RHS4_Corrector_boundary")
+    }  
+#endif
+}  
+
+
+//---------------------------------------------------------------------------
+void EW::addSuperGridDampingCU_upper_boundary(vector<Sarray> & a_Up, vector<Sarray> & a_U,
+                                              vector<Sarray> & a_Um, vector<Sarray> & a_Rho, int st )
+{
+#ifdef SW4_CUDA
+  for(int g=0 ; g<mNumberOfGrids; g++ )
+   {
+     int ni = m_iEnd[g] - m_iStart[g] + 1;
+     int nj = m_jEnd[g] - m_jStart[g] + 1;
+     int nk = m_kEnd[g] - m_kStart[g] + 1;
+
+     // If we have a free surface, the other kernels start at k=8 instead of 2,
+     // the free surface will compute k=[2:7]
+     int startk;
+     if( m_onesided[g][4] )
+       startk = 8;
+     else
+       startk = 2;
+
+     if( m_sg_damping_order == 4 )
+       {
+         // X Halo (avoid the Y halos -> J=[4:NJ-5]
+         addsgd4_X_gpu  (2, ni-3, 4, nj-5, startk, nk-3,
+                         ni, nj, nk,
+                         a_Up[g].dev_ptr(),  a_U[g].dev_ptr(), a_Um[g].dev_ptr(), a_Rho[g].dev_ptr(),
+                         dev_sg_dc_x[g], dev_sg_dc_y[g], dev_sg_dc_z[g],
+                         dev_sg_str_x[g], dev_sg_str_y[g], dev_sg_str_z[g],
+                         dev_sg_corner_x[g], dev_sg_corner_y[g], dev_sg_corner_z[g],
+                         m_supergrid_damping_coefficient, m_corder, m_cuobj->m_stream[st]);
+         // Y halo
+         addsgd4_Y_gpu  (2, ni-3, 2, nj-3, startk, nk-3,
+                         ni, nj, nk,
+                         a_Up[g].dev_ptr(),  a_U[g].dev_ptr(), a_Um[g].dev_ptr(), a_Rho[g].dev_ptr(),
+                         dev_sg_dc_x[g], dev_sg_dc_y[g], dev_sg_dc_z[g],
+                         dev_sg_str_x[g], dev_sg_str_y[g], dev_sg_str_z[g],
+                         dev_sg_corner_x[g], dev_sg_corner_y[g], dev_sg_corner_z[g],
+                         m_supergrid_damping_coefficient, m_corder, m_cuobj->m_stream[st]);
+         
+         // Free surface k=[2:7]
+         if( m_onesided[g][4] )
+           addsgd4_gpu  (2, ni-3, 2, nj-3, 2, 7,
+                         ni, nj, nk,
+                         a_Up[g].dev_ptr(),  a_U[g].dev_ptr(), a_Um[g].dev_ptr(), a_Rho[g].dev_ptr(),
+                         dev_sg_dc_x[g], dev_sg_dc_y[g], dev_sg_dc_z[g],
+                         dev_sg_str_x[g], dev_sg_str_y[g], dev_sg_str_z[g],
+                         dev_sg_corner_x[g], dev_sg_corner_y[g], dev_sg_corner_z[g],
+                         m_supergrid_damping_coefficient, m_corder, m_cuobj->m_stream[st]);
+         CHECK_ERROR("addsgd4_gpu");
+       }
+     else if(  m_sg_damping_order == 6 )
+       {
+         // TBD
+         CHECK_ERROR("addsgd6_gpu");
+       }
+   }
+#endif
+}
+
+//---------------------------------------------------------------------------
+void EW::addSuperGridDampingCU_center(vector<Sarray> & a_Up, vector<Sarray> & a_U,
+                                      vector<Sarray> & a_Um, vector<Sarray> & a_Rho, int st )
+{
+#ifdef SW4_CUDA
+  for(int g=0 ; g<mNumberOfGrids; g++ )
+   {
+     int ni = m_iEnd[g] - m_iStart[g] + 1;
+     int nj = m_jEnd[g] - m_jStart[g] + 1;
+     int nk = m_kEnd[g] - m_kStart[g] + 1;
+     // If we have a free surface, the other kernels start at k=8 instead of 2,
+     // the free surface will compute k=[2:7]
+     int startk;
+     if( m_onesided[g][4] )
+       startk = 8;
+     else
+       startk = 2;
+     if( m_sg_damping_order == 4 )
+       {
+         addsgd4_gpu( 4, ni-5, 4, nj-5, startk, nk-3,
+                      ni, nj, nk,
+                      a_Up[g].dev_ptr(),  a_U[g].dev_ptr(), a_Um[g].dev_ptr(), a_Rho[g].dev_ptr(),
+                      dev_sg_dc_x[g], dev_sg_dc_y[g], dev_sg_dc_z[g],
+                      dev_sg_str_x[g], dev_sg_str_y[g], dev_sg_str_z[g],
+                      dev_sg_corner_x[g], dev_sg_corner_y[g], dev_sg_corner_z[g],
+                      m_supergrid_damping_coefficient, m_corder, m_cuobj->m_stream[st]);
+         CHECK_ERROR("addsgd4_dev");
+       }
+     else if(  m_sg_damping_order == 6 )
+       {
+         // TBD
+         CHECK_ERROR("addsgd6_gpu");
+       }
+   }
+#endif
+}
+
+//---------------------------------------------------------------------------
+void EW::addSuperGridDampingCU(vector<Sarray> & a_Up, vector<Sarray> & a_U,
+                               vector<Sarray> & a_Um, vector<Sarray> & a_Rho, int st )
+{
+#ifdef SW4_CUDA
+  for(int g=0 ; g<mNumberOfGrids; g++ )
+   {
+     int ni = m_iEnd[g] - m_iStart[g] + 1;
+     int nj = m_jEnd[g] - m_jStart[g] + 1;
+     int nk = m_kEnd[g] - m_kStart[g] + 1;
+     if( m_sg_damping_order == 4 )
+       {
+         addsgd4_gpu  (2, ni-3, 2, nj-3, 2, nk-3,
+                       ni, nj, nk,
+                       a_Up[g].dev_ptr(),  a_U[g].dev_ptr(), a_Um[g].dev_ptr(), a_Rho[g].dev_ptr(),
+                       dev_sg_dc_x[g], dev_sg_dc_y[g], dev_sg_dc_z[g],
+                       dev_sg_str_x[g], dev_sg_str_y[g], dev_sg_str_z[g],
+                       dev_sg_corner_x[g], dev_sg_corner_y[g], dev_sg_corner_z[g],
+                       m_supergrid_damping_coefficient, m_corder, m_cuobj->m_stream[st]);
+         CHECK_ERROR("addsgd4_dev");
+       }
+     else if(  m_sg_damping_order == 6 )
+       {
+         // TBD
+         CHECK_ERROR("addsgd6_gpu");
+       }
+   }
+#endif
+}
+
+//-----------------------------------------------------------------------
+
+void EW::communicate_arrayCU( Sarray& u, int g , int st)
+{
+#ifdef SW4_CUDA
+   REQUIRE2( u.m_nc == 3 || u.m_nc == 1, "Communicate array, only implemented for one- and three-component arrays"
+             << " nc = " << u.m_nc );
+   int ie = u.m_ie, ib=u.m_ib, je=u.m_je, jb=u.m_jb, kb=u.m_kb;//,ke=u.m_ke;
+   MPI_Status status;
+   cudaError_t retcode;
+   dim3 gridsize, blocksize;
+   //gridsize.x  = m_gpu_gridsize[0] * m_gpu_gridsize[1] * m_gpu_gridsize[2];
+   gridsize.x  = 1 * 1 * m_gpu_gridsize[2];
+   gridsize.y  = 1;
+   gridsize.z  = 1;
+   blocksize.x = m_gpu_blocksize[0] * m_gpu_blocksize[1] * m_gpu_blocksize[2];
+   blocksize.y = 1;
+   blocksize.z = 1;
+
+   int ni = m_iEnd[g] - m_iStart[g] + 1;
+   int nj = m_jEnd[g] - m_jStart[g] + 1;
+   int nk = m_kEnd[g] - m_kStart[g] + 1;
+   int n_m_ppadding1 = 3*nj*nk*m_ppadding;
+   int n_m_ppadding2 = 3*ni*nk*m_ppadding;
+   int idx_left = 0;
+   int idx_right = n_m_ppadding2;
+   int idx_up = 2*n_m_ppadding2;
+   int idx_down = 2*n_m_ppadding2 + n_m_ppadding1;
+
+   if( u.m_nc == 1 )
+   {
+      int xtag1 = 345;
+      int xtag2 = 346;
+      int ytag1 = 347;
+      int ytag2 = 348;
+      int grid = g;
+      // X-direction communication
+      MPI_Sendrecv( &u(ie-(2*m_ppadding-1),jb,kb,true), 1, m_send_type1[2*grid], m_neighbor[1], xtag1,
+                    &u(ib,jb,kb,true), 1, m_send_type1[2*grid], m_neighbor[0], xtag1,
+                    m_cartesian_communicator, &status );
+      MPI_Sendrecv( &u(ib+m_ppadding,jb,kb,true), 1, m_send_type1[2*grid], m_neighbor[0], xtag2,
+                    &u(ie-(m_ppadding-1),jb,kb,true), 1, m_send_type1[2*grid], m_neighbor[1], xtag2,
+                    m_cartesian_communicator, &status );
+      //Y-direction communication
+      MPI_Sendrecv( &u(ib,je-(2*m_ppadding-1),kb,true), 1, m_send_type1[2*grid+1], m_neighbor[3], ytag1,
+                    &u(ib,jb,kb,true), 1, m_send_type1[2*grid+1], m_neighbor[2], ytag1,
+                    m_cartesian_communicator, &status );
+      MPI_Sendrecv( &u(ib,jb+m_ppadding,kb,true), 1, m_send_type1[2*grid+1], m_neighbor[2], ytag2,
+                    &u(ib,je-(m_ppadding-1),kb,true), 1, m_send_type1[2*grid+1], m_neighbor[3], ytag2,
+                    m_cartesian_communicator, &status );
+   }
+   else if( u.m_nc == 3 )
+   {
+      int xtag1 = 345;
+      int xtag2 = 346;
+      int ytag1 = 347;
+      int ytag2 = 348;
+
+      // Packing / unpacking of the array to send into the linear memory communication buffers 
+      // is done outside of this subroutine.
+
+#ifdef SW4_CUDA_AWARE_MPI
+
+      SafeCudaCall( cudaStreamSynchronize(m_cuobj->m_stream[st]) );
+
+      // X-direction communication
+      MPI_Sendrecv(&dev_SideEdge_Send[g][idx_right], n_m_ppadding2, m_mpifloat,
+                   m_neighbor[3], ytag2, &dev_SideEdge_Recv[g][idx_left],
+                   n_m_ppadding2, m_mpifloat, m_neighbor[2], ytag2, m_cartesian_communicator, &status);
+      MPI_Sendrecv(&dev_SideEdge_Send[g][idx_left], n_m_ppadding2, m_mpifloat,
+                   m_neighbor[2], ytag1, &dev_SideEdge_Recv[g][idx_right],
+                   n_m_ppadding2, m_mpifloat, m_neighbor[3], ytag1, m_cartesian_communicator, &status);
+
+      // Y-direction communication
+      MPI_Sendrecv(&dev_SideEdge_Send[g][idx_up], n_m_ppadding1, m_mpifloat,
+                   m_neighbor[1], xtag1, &dev_SideEdge_Recv[g][idx_down],
+		   n_m_ppadding1, m_mpifloat, m_neighbor[0], xtag1, m_cartesian_communicator, &status);
+
+      MPI_Sendrecv(&dev_SideEdge_Send[g][idx_down], n_m_ppadding1, m_mpifloat,
+                   m_neighbor[0], xtag2, &dev_SideEdge_Recv[g][idx_up],
+		   n_m_ppadding1, m_mpifloat, m_neighbor[1], xtag2, m_cartesian_communicator, &status);
+
+#else
+
+      // Copy buffers to host
+      if (m_neighbor[2] != MPI_PROC_NULL)
+        cudaMemcpyAsync(&m_SideEdge_Send[g][idx_left], &dev_SideEdge_Send[g][idx_left],
+                        n_m_ppadding2*sizeof(float_sw4), cudaMemcpyDeviceToHost, m_cuobj->m_stream[st]);
+
+      if (m_neighbor[3] != MPI_PROC_NULL)
+        cudaMemcpyAsync(&m_SideEdge_Send[g][idx_right], &dev_SideEdge_Send[g][idx_right],
+                        n_m_ppadding2*sizeof(float_sw4), cudaMemcpyDeviceToHost, m_cuobj->m_stream[st]);
+      
+      if (m_neighbor[1] != MPI_PROC_NULL)
+        cudaMemcpyAsync(&m_SideEdge_Send[g][idx_up], &dev_SideEdge_Send[g][idx_up],
+                        n_m_ppadding1*sizeof(float_sw4), cudaMemcpyDeviceToHost, m_cuobj->m_stream[st]);
+
+      if (m_neighbor[0] != MPI_PROC_NULL)
+        cudaMemcpyAsync(&m_SideEdge_Send[g][idx_down], &dev_SideEdge_Send[g][idx_down],
+                        n_m_ppadding1*sizeof(float_sw4), cudaMemcpyDeviceToHost, m_cuobj->m_stream[st]);
+      retcode = cudaStreamSynchronize(m_cuobj->m_stream[st]);
+      if( retcode != cudaSuccess )
+        {
+          cout << "Error communicate_array cudaMemcpy returned (DeviceToHost) "
+               << cudaGetErrorString(retcode) << endl;
+          exit(1);
+        }
+
+      // Send and receive with MPI
+      MPI_Sendrecv(&m_SideEdge_Send[g][idx_left], n_m_ppadding2, m_mpifloat,
+                   m_neighbor[2], ytag1, &m_SideEdge_Recv[g][idx_right],
+                   n_m_ppadding2, m_mpifloat, m_neighbor[3], ytag1, m_cartesian_communicator, &status);
+
+      MPI_Sendrecv(&m_SideEdge_Send[g][idx_right], n_m_ppadding2, m_mpifloat,
+                   m_neighbor[3], ytag2, &m_SideEdge_Recv[g][idx_left],
+                   n_m_ppadding2, m_mpifloat, m_neighbor[2], ytag2, m_cartesian_communicator, &status);      
+
+      MPI_Sendrecv(&m_SideEdge_Send[g][idx_up], n_m_ppadding1, m_mpifloat,
+                   m_neighbor[1], xtag1, &m_SideEdge_Recv[g][idx_down],
+                   n_m_ppadding1, m_mpifloat, m_neighbor[0], xtag1, m_cartesian_communicator, &status);
+
+      MPI_Sendrecv(&m_SideEdge_Send[g][idx_down], n_m_ppadding1, m_mpifloat,
+                   m_neighbor[0], xtag2, &m_SideEdge_Recv[g][idx_up],
+                   n_m_ppadding1, m_mpifloat, m_neighbor[1], xtag2, m_cartesian_communicator, &status);
+      
+      // Copy buffers to device
+      if (m_neighbor[1] != MPI_PROC_NULL)
+        cudaMemcpyAsync(&dev_SideEdge_Recv[g][idx_up], &m_SideEdge_Recv[g][idx_up],
+                        n_m_ppadding1*sizeof(float_sw4), cudaMemcpyHostToDevice, m_cuobj->m_stream[st] );
+
+      if (m_neighbor[0] != MPI_PROC_NULL)
+        cudaMemcpyAsync(&dev_SideEdge_Recv[g][idx_down], &m_SideEdge_Recv[g][idx_down],
+                        n_m_ppadding1*sizeof(float_sw4), cudaMemcpyHostToDevice, m_cuobj->m_stream[st] );
+
+      if (m_neighbor[2] != MPI_PROC_NULL)
+        cudaMemcpyAsync(&dev_SideEdge_Recv[g][idx_left], &m_SideEdge_Recv[g][idx_left],
+                        n_m_ppadding2*sizeof(float_sw4), cudaMemcpyHostToDevice, m_cuobj->m_stream[st] );
+
+      if (m_neighbor[3] != MPI_PROC_NULL)
+        cudaMemcpyAsync(&dev_SideEdge_Recv[g][idx_right], &m_SideEdge_Recv[g][idx_right],
+                        n_m_ppadding2*sizeof(float_sw4), cudaMemcpyHostToDevice, m_cuobj->m_stream[st] );
+      
+      retcode = cudaStreamSynchronize(m_cuobj->m_stream[st]);
+      if( retcode != cudaSuccess )
+        {
+          cout << "Error communicate_array cudaMemcpy returned (Host2Device) "
+               << cudaGetErrorString(retcode) << endl;
+          exit(1);
+        }
+
+#endif
+   }
+#endif
+}
+
 //-----------------------------------------------------------------------
 
 void EW::setup_device_communication_array()
 {
 #ifdef SW4_CUDA
-  dev_SideEdge_Send_X.resize(mNumberOfGrids);
-  dev_SideEdge_Recv_X.resize(mNumberOfGrids);
-  dev_SideEdge_Send_Y.resize(mNumberOfGrids);
-  dev_SideEdge_Recv_Y.resize(mNumberOfGrids);
+  dev_SideEdge_Send.resize(mNumberOfGrids);
+  dev_SideEdge_Recv.resize(mNumberOfGrids);
 #ifndef SW4_CUDA_AWARE_MPI
-  m_SideEdge_Send_X.resize(mNumberOfGrids);
-  m_SideEdge_Recv_X.resize(mNumberOfGrids);
-  m_SideEdge_Send_Y.resize(mNumberOfGrids);
-  m_SideEdge_Recv_Y.resize(mNumberOfGrids);
+  m_SideEdge_Send.resize(mNumberOfGrids);
+  m_SideEdge_Recv.resize(mNumberOfGrids);
 #endif
 
   if( m_ndevice > 0 )
@@ -1074,24 +1203,14 @@ void EW::setup_device_communication_array()
         int n_m_ppadding1 = 3*nj*nk*m_ppadding;
         int n_m_ppadding2 = 3*ni*nk*m_ppadding;
 
-        retcode = cudaMalloc( (void**)&dev_SideEdge_Send_X[g], sizeof(float_sw4)*2*(n_m_ppadding1) );
+        retcode = cudaMalloc( (void**)&dev_SideEdge_Send[g], sizeof(float_sw4)*2*(n_m_ppadding1+n_m_ppadding2) );
         if( retcode != cudaSuccess )
-           cout << "Error, EW::setup_device_communication_arra cudaMalloc dev_SideEdge_Send_X returned "
+           cout << "Error, EW::setup_device_communication_arra cudaMalloc returned "
                 << cudaGetErrorString(retcode) << endl;
 
-        retcode = cudaMalloc( (void**)&dev_SideEdge_Recv_X[g], sizeof(float_sw4)*2*(n_m_ppadding1) );
+        retcode = cudaMalloc( (void**)&dev_SideEdge_Recv[g], sizeof(float_sw4)*2*(n_m_ppadding1+n_m_ppadding2) );
         if( retcode != cudaSuccess )
-           cout << "Error, EW::setup_device_communication_arra cudaMalloc dev_SideEdge_Recv_X returned "
-                << cudaGetErrorString(retcode) << endl;
-
-        retcode = cudaMalloc( (void**)&dev_SideEdge_Send_Y[g], sizeof(float_sw4)*2*(n_m_ppadding2) );
-        if( retcode != cudaSuccess )
-           cout << "Error, EW::setup_device_communication_arra cudaMalloc dev_SideEdge_Send_Y returned "
-                << cudaGetErrorString(retcode) << endl;
-
-        retcode = cudaMalloc( (void**)&dev_SideEdge_Recv_Y[g], sizeof(float_sw4)*2*(n_m_ppadding2) );
-        if( retcode != cudaSuccess )
-           cout << "Error, EW::setup_device_communication_arra cudaMalloc dev_SideEdge_Recv_Y returned "
+           cout << "Error, EW::setup_device_communication_arra cudaMalloc returned "
                 << cudaGetErrorString(retcode) << endl;
 
         //retcode = cudaMemset(dev_SideEdge_Send[g], 0.0, sizeof(float_sw4)*2*(n_m_ppadding1+n_m_ppadding2) );
@@ -1107,24 +1226,14 @@ void EW::setup_device_communication_array()
 
 #ifndef SW4_CUDA_AWARE_MPI
 
-        retcode = cudaMallocHost( (void**)&m_SideEdge_Send_X[g], sizeof(float_sw4)*2*(n_m_ppadding1) );
+        retcode = cudaMallocHost( (void**)&m_SideEdge_Send[g], sizeof(float_sw4)*2*(n_m_ppadding1+n_m_ppadding2) );
         if( retcode != cudaSuccess )
-           cout << "Error, EW::setup_device_communication_arra m_SideEdge_Send_X cudaMallocHost returned "
+           cout << "Error, EW::setup_device_communication_arra cudaMallocHost returned "
                 << cudaGetErrorString(retcode) << endl;
 
-        retcode = cudaMallocHost( (void**)&m_SideEdge_Recv_X[g], sizeof(float_sw4)*2*(n_m_ppadding1) );
+        retcode = cudaMallocHost( (void**)&m_SideEdge_Recv[g], sizeof(float_sw4)*2*(n_m_ppadding1+n_m_ppadding2) );
         if( retcode != cudaSuccess )
-           cout << "Error, EW::setup_device_communication_arra m_SideEdge_Recv_X cudaMallocHost returned "
-                << cudaGetErrorString(retcode) << endl;
-
-        retcode = cudaMallocHost( (void**)&m_SideEdge_Send_Y[g], sizeof(float_sw4)*2*(n_m_ppadding2) );
-        if( retcode != cudaSuccess )
-           cout << "Error, EW::setup_device_communication_arra m_SideEdge_Send_Y cudaMallocHost returned "
-                << cudaGetErrorString(retcode) << endl;
-
-        retcode = cudaMallocHost( (void**)&m_SideEdge_Recv_Y[g], sizeof(float_sw4)*2*(n_m_ppadding2) );
-        if( retcode != cudaSuccess )
-           cout << "Error, EW::setup_device_communication_arra m_SideEdge_Recv_Y cudaMallocHost returned "
+           cout << "Error, EW::setup_device_communication_arra cudaMallocHost returned "
                 << cudaGetErrorString(retcode) << endl;
 
         //memset( m_SideEdge_Send[g], 0.0, sizeof(float_sw4)*2*(n_m_ppadding1+n_m_ppadding2) );
@@ -1138,6 +1247,8 @@ void EW::setup_device_communication_array()
 #endif
 }
 
+
+#else  // not SW4_Guillaume
 //-----------------------------------------------------------------------
 
 void EW::communicate_arrayCU( Sarray& u, int g , int st)
@@ -1332,317 +1443,431 @@ void EW::communicate_arrayCU( Sarray& u, int g , int st)
    }
 #endif
 }
-
-
 //-----------------------------------------------------------------------
-void EW::enforceBCCU( vector<Sarray> & a_U, vector<Sarray>& a_Mu, vector<Sarray>& a_Lambda,
-                      float_sw4 t, vector<float_sw4**> & a_BCForcing, int st )
+void EW::evalRHSCU(vector<Sarray> & a_U, vector<Sarray>& a_Mu, vector<Sarray>& a_Lambda,
+		   vector<Sarray> & a_Uacc, int st )
 {
 #ifdef SW4_CUDA
-  dim3 gridsize, blocksize;
-  gridsize.x  = m_gpu_gridsize[0];
-  gridsize.y  = m_gpu_gridsize[1];
-  gridsize.z  = m_gpu_gridsize[2];
-  blocksize.x = m_gpu_blocksize[0];
-  blocksize.y = m_gpu_blocksize[1];
-  blocksize.z = m_gpu_blocksize[2];
-
-  float_sw4 om=0, ph=0, cv=0;
-  for(int g=0 ; g<mNumberOfGrids; g++ )
-  {
-    if( m_corder )
-      bcfortsg_dev_indrev<<<gridsize, blocksize, 0, m_cuobj->m_stream[st]>>>( m_iStart[g], m_iEnd[g], m_jStart[g], m_jEnd[g], m_kStart[g], m_kEnd[g],
-                                                                              dev_BndryWindow[g], m_global_nx[g], m_global_ny[g], m_global_nz[g], a_U[g].dev_ptr(),
-                                                                              mGridSize[g], dev_bcType[g], a_Mu[g].dev_ptr(), a_Lambda[g].dev_ptr(),
-                                                                              t, dev_BCForcing[g][0], dev_BCForcing[g][1], dev_BCForcing[g][2],
-                                                                              dev_BCForcing[g][3], dev_BCForcing[g][4], dev_BCForcing[g][5],
-                                                                              om, ph, cv, dev_sg_str_x[g], dev_sg_str_y[g] );
-    else
-      bcfortsg_dev<<<gridsize, blocksize, 0, m_cuobj->m_stream[st]>>>( m_iStart[g], m_iEnd[g], m_jStart[g], m_jEnd[g], m_kStart[g], m_kEnd[g],
-                                                                       dev_BndryWindow[g], m_global_nx[g], m_global_ny[g], m_global_nz[g], a_U[g].dev_ptr(),
-                                                                       mGridSize[g], dev_bcType[g], a_Mu[g].dev_ptr(), a_Lambda[g].dev_ptr(),
-                                                                       t, dev_BCForcing[g][0], dev_BCForcing[g][1], dev_BCForcing[g][2],
-                                                                       dev_BCForcing[g][3], dev_BCForcing[g][4], dev_BCForcing[g][5],
-                                                                       om, ph, cv, dev_sg_str_x[g], dev_sg_str_y[g] );
-
-      if( m_topography_exists && g == mNumberOfGrids-1 && m_bcType[g][4] == bStressFree )
+   dim3 gridsize, blocksize;
+   gridsize.x  = m_gpu_gridsize[0];
+   gridsize.y  = m_gpu_gridsize[1];
+   gridsize.z  = m_gpu_gridsize[2];
+   blocksize.x = m_gpu_blocksize[0];
+   blocksize.y = m_gpu_blocksize[1];
+   blocksize.z = m_gpu_blocksize[2];
+   for(int g=0 ; g<mNumberOfCartesianGrids; g++ )
+   {
+      if( m_corder ) 
       {
-	 int side = 5;
-         gridsize.z = 1;
-         blocksize.z = 1;
+#if 1
+        int ni = m_iEnd[g] - m_iStart[g] + 1 - 2*m_ghost_points;
+        int nj = m_jEnd[g] - m_jStart[g] + 1 - 2*m_ghost_points;
+        int nk = m_kEnd[g] - m_kStart[g] + 1 - 2*m_ghost_points;
+        dim3 block(RHS4_BLOCKX,RHS4_BLOCKY);
+        dim3 grid;
+        grid.x = (ni + block.x - 1) / block.x;
+        grid.y = (nj + block.y - 1) / block.y;
+        grid.z = 1;
+        rhs4center_dev_rev_v2<<<grid,block,0,m_cuobj->m_stream[st]>>>
+          ( m_iStart[g], m_iEnd[g], m_jStart[g], m_jEnd[g], m_kStart[g],
+            m_kEnd[g], a_Uacc[g].dev_ptr(), a_U[g].dev_ptr(), a_Mu[g].dev_ptr(),
+            a_Lambda[g].dev_ptr(), mGridSize[g],
+            dev_sg_str_x[g], dev_sg_str_y[g], dev_sg_str_z[g], m_ghost_points );
+#else
+        rhs4center_dev_rev<<<gridsize,blocksize,0,m_cuobj->m_stream[st]>>>
+                ( m_iStart[g], m_iEnd[g], m_jStart[g], m_jEnd[g], m_kStart[g],
+                m_kEnd[g], a_Uacc[g].dev_ptr(), a_U[g].dev_ptr(), a_Mu[g].dev_ptr(),
+                  a_Lambda[g].dev_ptr(), mGridSize[g],
+                  dev_sg_str_x[g], dev_sg_str_y[g], dev_sg_str_z[g], m_ghost_points );
+#endif
+        CHECK_ERROR("rhs4center_dev")
+      }
+      else
+      {
+        int ni = m_iEnd[g] - m_iStart[g] + 1 - 2*m_ghost_points;
+        int nj = m_jEnd[g] - m_jStart[g] + 1 - 2*m_ghost_points;
+        int nk = m_kEnd[g] - m_kStart[g] + 1 - 2*m_ghost_points;
+        dim3 block(RHS4_BLOCKX,RHS4_BLOCKY);
+        dim3 grid;
+        grid.x = (ni + block.x - 1) / block.x;
+        grid.y = (nj + block.y - 1) / block.y;
+        grid.z = 1;
+        rhs4center_dev_v2<<<grid,block,0,m_cuobj->m_stream[st]>>>
+	 ( m_iStart[g], m_iEnd[g], m_jStart[g], m_jEnd[g], m_kStart[g],
+	   m_kEnd[g], a_Uacc[g].dev_ptr(), a_U[g].dev_ptr(), a_Mu[g].dev_ptr(),
+	   a_Lambda[g].dev_ptr(), mGridSize[g],
+	   dev_sg_str_x[g], dev_sg_str_y[g], dev_sg_str_z[g], m_ghost_points );
+      }
+      CHECK_ERROR("rhs4center_dev")
+   }
+// Boundary operator at upper boundary
+   blocksize.z = 1;
+   gridsize.z  = 6;
+
+   for(int g=0 ; g<mNumberOfCartesianGrids; g++ )
+   {
+      if( m_onesided[g][4] )
+      {
 	 if( m_corder )
-           freesurfcurvisg_dev_rev<<<gridsize, blocksize, 0, m_cuobj->m_stream[st]>>>( m_iStart[g], m_iEnd[g], m_jStart[g], m_jEnd[g], m_kStart[g], m_kEnd[g],
-                                                                               m_global_nz[g], side, a_U[g].dev_ptr(), a_Mu[g].dev_ptr(),
-                                                                               a_Lambda[g].dev_ptr(), mMetric.dev_ptr(),  
-                                                                              dev_BCForcing[g][4], dev_sg_str_x[g], dev_sg_str_y[g], m_ghost_points );
+	    rhs4upper_dev_rev<<<gridsize,blocksize,0,m_cuobj->m_stream[st]>>>
+	    ( m_iStart[g], m_iEnd[g], m_jStart[g], m_jEnd[g], m_kStart[g],  m_kEnd[g],
+	      a_Uacc[g].dev_ptr(), a_U[g].dev_ptr(), a_Mu[g].dev_ptr(),
+	      a_Lambda[g].dev_ptr(), mGridSize[g],
+	      dev_sg_str_x[g], dev_sg_str_y[g], dev_sg_str_z[g], m_ghost_points );
 	 else
-           freesurfcurvisg_dev<<<gridsize, blocksize, 0, m_cuobj->m_stream[st]>>>( m_iStart[g], m_iEnd[g], m_jStart[g], m_jEnd[g], m_kStart[g], m_kEnd[g],
-                                                                               m_global_nz[g], side, a_U[g].dev_ptr(), a_Mu[g].dev_ptr(),
-                                                                               a_Lambda[g].dev_ptr(), mMetric.dev_ptr(),  
-                                                                              dev_BCForcing[g][4], dev_sg_str_x[g], dev_sg_str_y[g], m_ghost_points );
+	    rhs4upper_dev<<<gridsize,blocksize,0,m_cuobj->m_stream[st]>>>
+	    ( m_iStart[g], m_iEnd[g], m_jStart[g], m_jEnd[g], m_kStart[g],  m_kEnd[g],
+	      a_Uacc[g].dev_ptr(), a_U[g].dev_ptr(), a_Mu[g].dev_ptr(),
+	      a_Lambda[g].dev_ptr(), mGridSize[g],
+	      dev_sg_str_x[g], dev_sg_str_y[g], dev_sg_str_z[g], m_ghost_points );
       }
+      CHECK_ERROR("evalRHSCU_upper")
+   }
 
-  }
-  if (m_topography_exists)
-  {
-    gridsize.z = 1;
-    blocksize.z = 1;
-    int g = mNumberOfCartesianGrids-1;
-    int gc = mNumberOfGrids-1; 
-    if( m_corder )
-      enforceCartTopo_dev_rev<<<gridsize, blocksize, 0, m_cuobj->m_stream[st]>>>(m_iStart[g], m_iEnd[g], m_jStart[g], m_jEnd[g], m_kStart[g], m_kEnd[g],
-                             m_iStart[gc], m_iEnd[gc], m_jStart[gc], m_jEnd[gc], m_kStart[gc], m_kEnd[gc],  
-                             a_U[g].dev_ptr(), a_U[gc].dev_ptr(), m_ghost_points);
-   else
-      enforceCartTopo_dev<<<gridsize, blocksize, 0, m_cuobj->m_stream[st]>>>(m_iStart[g], m_iEnd[g], m_jStart[g], m_jEnd[g], m_kStart[g], m_kEnd[g], 
-                          m_iStart[gc], m_iEnd[gc], m_jStart[gc], m_jEnd[gc], m_kStart[gc], m_kEnd[gc],  
-                          a_U[g].dev_ptr(), a_U[gc].dev_ptr(), m_ghost_points);
-  }
-#endif
-}
-
-//-----------------------------------------------------------------------
-
-void EW::pack_HaloArrayCU( Sarray& u, int g , int st)
-{
-#ifdef SW4_CUDA
-  REQUIRE2( u.m_nc == 3 || u.m_nc == 1, "Communicate array, only implemented for one- and three-component arrays"
-	    << " nc = " << u.m_nc );
-  int ie = u.m_ie, ib=u.m_ib, je=u.m_je, jb=u.m_jb, kb=u.m_kb;//,ke=u.m_ke;
-  MPI_Status status;
-  dim3 gridsize, blocksize;
-  //gridsize.x  = m_gpu_gridsize[0] * m_gpu_gridsize[1] * m_gpu_gridsize[2];
-  gridsize.x  = 1 * 1 * m_gpu_gridsize[2];
-  gridsize.y  = 1;
-  gridsize.z  = 1;
-  blocksize.x = m_gpu_blocksize[0] * m_gpu_blocksize[1] * m_gpu_blocksize[2];
-  blocksize.y = 1;
-  blocksize.z = 1;
-
-  int ni = m_iEnd[g] - m_iStart[g] + 1;
-  int nj = m_jEnd[g] - m_jStart[g] + 1;
-  int nk = m_kEnd[g] - m_kStart[g] + 1;
-  int n_m_ppadding1 = 3*nj*nk*m_ppadding;
-  int n_m_ppadding2 = 3*ni*nk*m_ppadding;
-  int idx_left = 0;
-  int idx_right = n_m_ppadding2;
-  int idx_up = 2*n_m_ppadding2;
-  int idx_down = 2*n_m_ppadding2 + n_m_ppadding1;
-
-  if( u.m_nc == 3 )
-    {
-      // X-direction communication	 
-      if(m_corder)
-        BufferToHaloKernelX_dev_rev<<<gridsize, blocksize, 0, m_cuobj->m_stream[st]>>>
-          ( &u(1,ib,jb+m_ppadding,kb,true), &u(1,ib,je-(2*m_ppadding-1),kb,true),
-            &dev_SideEdge_Send[g][idx_left], &dev_SideEdge_Send[g][idx_right],
-            ni, nj, nk, m_ppadding, m_neighbor[2], m_neighbor[3], MPI_PROC_NULL );
-      else
-        BufferToHaloKernelX_dev<<<gridsize, blocksize, 0, m_cuobj->m_stream[st] >>>
-          ( &u(1,ib,jb+m_ppadding,kb,true), &u(1,ib,je-(2*m_ppadding-1),kb,true), 
-            &dev_SideEdge_Send[g][idx_left], &dev_SideEdge_Send[g][idx_right],
-            ni, nj, nk, m_ppadding, m_neighbor[2], m_neighbor[3], MPI_PROC_NULL );
-      CheckCudaCall(cudaGetLastError(), "BufferToHaloKernel<<<,>>>(...)", __FILE__, __LINE__);
-      
-      // Y-direction communication
-      if(m_corder)
-        BufferToHaloKernelY_dev_rev<<<gridsize, blocksize, 0, m_cuobj->m_stream[st]>>>
-          ( &u(1,ie-(2*m_ppadding-1),jb,kb,true), &u(1,ib+m_ppadding,jb,kb,true),
-            &dev_SideEdge_Send[g][idx_up], &dev_SideEdge_Send[g][idx_down],
-            ni, nj, nk, m_ppadding, m_neighbor[0], m_neighbor[1], MPI_PROC_NULL );
-      else
-        BufferToHaloKernelY_dev<<<gridsize, blocksize, 0, m_cuobj->m_stream[st]>>>
-          ( &u(1,ie-(2*m_ppadding-1),jb,kb,true), &u(1,ib+m_ppadding,jb,kb,true),
-            &dev_SideEdge_Send[g][idx_up], &dev_SideEdge_Send[g][idx_down],
-            ni, nj, nk, m_ppadding, m_neighbor[0],  m_neighbor[1], MPI_PROC_NULL );
-      CheckCudaCall(cudaGetLastError(), "BufferToHaloKernel<<<,>>>(...)", __FILE__, __LINE__);
-    }
-#endif
-}
-
-//-----------------------------------------------------------------------
-
-void EW::unpack_HaloArrayCU( Sarray& u, int g , int st)
-{
-#ifdef SW4_CUDA
-  REQUIRE2( u.m_nc == 3 || u.m_nc == 1, "Communicate array, only implemented for one- and three-component arrays"
-	    << " nc = " << u.m_nc );
-  int ie = u.m_ie, ib=u.m_ib, je=u.m_je, jb=u.m_jb, kb=u.m_kb;//,ke=u.m_ke;
-  MPI_Status status;
-  dim3 gridsize, blocksize;
-  //gridsize.x  = m_gpu_gridsize[0] * m_gpu_gridsize[1] * m_gpu_gridsize[2];
-  gridsize.x  = 1 * 1 * m_gpu_gridsize[2];
-  gridsize.y  = 1;
-  gridsize.z  = 1;
-  blocksize.x = m_gpu_blocksize[0] * m_gpu_blocksize[1] * m_gpu_blocksize[2];
-  blocksize.y = 1;
-  blocksize.z = 1;
-
-  int ni = m_iEnd[g] - m_iStart[g] + 1;
-  int nj = m_jEnd[g] - m_jStart[g] + 1;
-  int nk = m_kEnd[g] - m_kStart[g] + 1;
-  int n_m_ppadding1 = 3*nj*nk*m_ppadding;
-  int n_m_ppadding2 = 3*ni*nk*m_ppadding;
-  int idx_left = 0;
-  int idx_right = n_m_ppadding2;
-  int idx_up = 2*n_m_ppadding2;
-  int idx_down = 2*n_m_ppadding2 + n_m_ppadding1;
-
-  if( u.m_nc == 3 )
-    {
-      if(m_corder)
-        HaloToBufferKernelX_dev_rev<<<gridsize, blocksize, 0, m_cuobj->m_stream[st] >>>
-          ( &u(1,ib,jb,kb,true), &u(1,ib,je-(m_ppadding-1),kb,true),
-            &dev_SideEdge_Recv[g][idx_left], &dev_SideEdge_Recv[g][idx_right],
-            ni, nj, nk, m_ppadding, m_neighbor[2], m_neighbor[3], MPI_PROC_NULL );
-      else
-        HaloToBufferKernelX_dev<<<gridsize, blocksize, 0, m_cuobj->m_stream[st]>>>
-          ( &u(1,ib,jb,kb,true), &u(1,ib,je-(m_ppadding-1),kb,true),
-            &dev_SideEdge_Recv[g][idx_left], &dev_SideEdge_Recv[g][idx_right],
-            ni, nj, nk, m_ppadding, m_neighbor[2], m_neighbor[3], MPI_PROC_NULL );
-      CheckCudaCall(cudaGetLastError(), "HaloToBufferKernel<<<,>>>(...)", __FILE__, __LINE__);
-      
-      // Y-direction communication
-      if(m_corder)
-        HaloToBufferKernelY_dev_rev<<<gridsize, blocksize, 0, m_cuobj->m_stream[st]>>>
-          ( &u(1,ie-(m_ppadding-1),jb,kb,true), &u(1,ib,jb,kb,true),
-            &dev_SideEdge_Recv[g][idx_up], &dev_SideEdge_Recv[g][idx_down], ni, nj, nk, m_ppadding,
-            m_neighbor[0], m_neighbor[1], MPI_PROC_NULL );
-      else
-        HaloToBufferKernelY_dev<<<gridsize, blocksize, 0, m_cuobj->m_stream[st] >>>
-          ( &u(1,ie-(m_ppadding-1),jb,kb,true), &u(1,ib,jb,kb,true),
-            &dev_SideEdge_Recv[g][idx_up], &dev_SideEdge_Recv[g][idx_down], ni, nj, nk, m_ppadding,
-            m_neighbor[0],  m_neighbor[1], MPI_PROC_NULL );
-      CheckCudaCall(cudaGetLastError(), "HaloToBufferKernel<<<,>>>(...)", __FILE__, __LINE__);
-
-    }
-#endif
-}
-
-//-----------------------------------------------------------------------
-
-void EW::cartesian_bc_forcingCU( float_sw4 t, vector<float_sw4**> & a_BCForcing,
-                                 vector<Source*>& a_sources , int st)
-// assign the boundary forcing arrays dev_BCForcing[g][side]
-{
-#ifdef SW4_CUDA
-  cudaError_t retcode;
-  for(int g=0 ; g<mNumberOfGrids; g++ )
-  {
-    if( m_point_source_test )
-    {
-      for( int side=0 ; side < 6 ; side++ )
+   if( m_topography_exists )
+   {
+      gridsize.x  = m_gpu_gridsize[0];
+      gridsize.y  = m_gpu_gridsize[1];
+      gridsize.z  = m_gpu_gridsize[2];
+      blocksize.x = m_gpu_blocksize[0];
+      blocksize.y = m_gpu_blocksize[1];
+      blocksize.z = m_gpu_blocksize[2];
+      int g=mNumberOfGrids-1;
+   // Boundary operator at upper boundary
+      int onesided4 = 0;  
+      if( m_onesided[g][4] )
       {
-        size_t nBytes = sizeof(float_sw4)*3*m_NumberOfBCPoints[g][side];
-        if( m_bcType[g][side] == bDirichlet )
-        {
-          get_exact_point_source( a_BCForcing[g][side], t, g, *a_sources[0], &m_BndryWindow[g][6*side] );
-          retcode = cudaMemcpyAsync( dev_BCForcing[g][side], a_BCForcing[g][side], nBytes, cudaMemcpyHostToDevice, m_cuobj->m_stream[st]);
-          if( retcode != cudaSuccess )
-            cout << "Error, EW::cartesian_bc_forcing_CU cudaMemcpy x returned " << cudaGetErrorString(retcode) << endl;
-        }
+        onesided4 = 1;
+        blocksize.z = 1;
+        gridsize.z  = 6;
+        if( m_corder )
+  	  rhs4sgcurvupper_dev_rev<<<gridsize,blocksize,0,m_cuobj->m_stream[st]>>>
+	          ( m_iStart[g], m_iEnd[g], m_jStart[g], m_jEnd[g], m_kStart[g],
+	          m_kEnd[g], a_U[g].dev_ptr(), a_Mu[g].dev_ptr(), a_Lambda[g].dev_ptr(),
+	          mMetric.dev_ptr(), mJ.dev_ptr(), a_Uacc[g].dev_ptr(), 
+	          dev_sg_str_x[g], dev_sg_str_y[g], m_ghost_points );
         else
-        {
-          cudaMemsetAsync( dev_BCForcing[g][side], 0, nBytes , m_cuobj->m_stream[st]);
-        }
+	  rhs4sgcurvupper_dev<<<gridsize,blocksize,0,m_cuobj->m_stream[st]>>>
+	          ( m_iStart[g], m_iEnd[g], m_jStart[g], m_jEnd[g], m_kStart[g],
+	          m_kEnd[g], a_U[g].dev_ptr(), a_Mu[g].dev_ptr(), a_Lambda[g].dev_ptr(),
+	          mMetric.dev_ptr(), mJ.dev_ptr(), a_Uacc[g].dev_ptr(), 
+	          dev_sg_str_x[g], dev_sg_str_y[g], m_ghost_points );
+        CHECK_ERROR("rhs4sgcurvupper")
       }
-    }
-    else
-    {
-      for( int side=0 ; side < 6 ; side++ )
+      gridsize.z  = m_gpu_gridsize[2];
+      blocksize.z = m_gpu_blocksize[2];
+      if( m_corder )
       {
-        size_t nBytes = sizeof(float_sw4)*3*m_NumberOfBCPoints[g][side];
-        cudaMemsetAsync( dev_BCForcing[g][side], 0, nBytes , m_cuobj->m_stream[st]);
+#if 1
+        int ni = m_iEnd[g] - m_iStart[g] + 1 - 2*m_ghost_points;
+        int nj = m_jEnd[g] - m_jStart[g] + 1 - 2*m_ghost_points;
+        int nk = m_kEnd[g] - m_kStart[g] + 1 - 2*m_ghost_points;
+        dim3 block(RHS4_BLOCKX,RHS4_BLOCKY);
+        dim3 grid;
+        grid.x = (ni + block.x - 1) / block.x;
+        grid.y = (nj + block.y - 1) / block.y;
+        grid.z = 1;
+	rhs4sgcurv_dev_rev_v2<<<grid,block,0,m_cuobj->m_stream[st]>>>
+	        ( m_iStart[g], m_iEnd[g], m_jStart[g], m_jEnd[g], m_kStart[g],
+	        m_kEnd[g], a_U[g].dev_ptr(), a_Mu[g].dev_ptr(), a_Lambda[g].dev_ptr(),
+	        mMetric.dev_ptr(), mJ.dev_ptr(), a_Uacc[g].dev_ptr(), 
+	        onesided4, dev_sg_str_x[g], dev_sg_str_y[g], m_ghost_points );
+#else
+	rhs4sgcurv_dev_rev<<<gridsize,blocksize,0,m_cuobj->m_stream[st]>>>
+	        ( m_iStart[g], m_iEnd[g], m_jStart[g], m_jEnd[g], m_kStart[g],
+	        m_kEnd[g], a_U[g].dev_ptr(), a_Mu[g].dev_ptr(), a_Lambda[g].dev_ptr(),
+	        mMetric.dev_ptr(), mJ.dev_ptr(), a_Uacc[g].dev_ptr(), 
+	        onesided4, dev_sg_str_x[g], dev_sg_str_y[g], m_ghost_points );
+#endif
       }
-    }
-  }
+      else
+	rhs4sgcurv_dev<<<gridsize,blocksize,0,m_cuobj->m_stream[st]>>>
+	        ( m_iStart[g], m_iEnd[g], m_jStart[g], m_jEnd[g], m_kStart[g],
+	        m_kEnd[g], a_U[g].dev_ptr(), a_Mu[g].dev_ptr(), a_Lambda[g].dev_ptr(),
+	        mMetric.dev_ptr(), mJ.dev_ptr(), a_Uacc[g].dev_ptr(), 
+	        onesided4, dev_sg_str_x[g], dev_sg_str_y[g], m_ghost_points );
+      CHECK_ERROR("rhs4sgcurv")
+   }
 #endif
 }
 
 //-----------------------------------------------------------------------
-
-void EW::copy_bcforcing_arrays_to_device()
+void EW::evalPredictorCU( vector<Sarray> & a_Up, vector<Sarray> & a_U, vector<Sarray> & a_Um,
+			  vector<Sarray>& a_Rho, vector<Sarray> & a_Lu, vector<Sarray> & a_F, int st )
+//			  vector<Sarray>& a_Rho, vector<Sarray> & a_Lu, Sarray* a_F, int st )
 {
-
 #ifdef SW4_CUDA
-   //Set up boundary data array on the deivec
-  if(m_ndevice > 0 )
-  {
-    cudaError_t retcode;
-    dev_BCForcing.resize(mNumberOfGrids);
-    for( int g = 0; g <mNumberOfGrids; g++ )
-    {
-      dev_BCForcing[g] = new float_sw4*[6];
-      for (int side=0; side < 6; side++)
+   float_sw4 dt2 = mDt*mDt;
+   dim3 gridsize, blocksize;
+   gridsize.x  = m_gpu_gridsize[0] * m_gpu_gridsize[1] * m_gpu_gridsize[2];
+   gridsize.y  = 1;
+   gridsize.z  = 1;
+   blocksize.x = m_gpu_blocksize[0] * m_gpu_blocksize[1] * m_gpu_blocksize[2];
+   blocksize.y = 1;
+   blocksize.z = 1;
+   for( int g=0 ; g<mNumberOfGrids; g++ )
+   {
+      if( m_corder )
+	 pred_dev_rev<<<gridsize,blocksize,0,m_cuobj->m_stream[st]>>>( m_iStart[g], m_iEnd[g], m_jStart[g], m_jEnd[g],
+								   m_kStart[g], m_kEnd[g], a_Up[g].dev_ptr(), a_U[g].dev_ptr(),
+								   a_Um[g].dev_ptr(), a_Lu[g].dev_ptr(), a_F[g].dev_ptr(),
+								   a_Rho[g].dev_ptr(), dt2, m_ghost_points );
+      else
+	 pred_dev<<<gridsize,blocksize,0,m_cuobj->m_stream[st]>>>( m_iStart[g], m_iEnd[g], m_jStart[g], m_jEnd[g],
+								   m_kStart[g], m_kEnd[g], a_Up[g].dev_ptr(), a_U[g].dev_ptr(),
+								   a_Um[g].dev_ptr(), a_Lu[g].dev_ptr(), a_F[g].dev_ptr(),
+								   a_Rho[g].dev_ptr(), dt2, m_ghost_points );
+      CHECK_ERROR("evalPredictorCU")
+   }
+#endif
+}
+
+//---------------------------------------------------------------------------
+void EW::evalCorrectorCU( vector<Sarray> & a_Up, vector<Sarray>& a_Rho,
+			  vector<Sarray> & a_Lu, vector<Sarray> & a_F, int st )
+//			  vector<Sarray> & a_Lu, Sarray* a_F, int st )
+{
+#ifdef SW4_CUDA
+   float_sw4 dt4 = mDt*mDt*mDt*mDt;  
+   dim3 gridsize, blocksize;
+   gridsize.x  = m_gpu_gridsize[0] * m_gpu_gridsize[1] * m_gpu_gridsize[2];
+   gridsize.y  = 1;
+   gridsize.z  = 1;
+   blocksize.x = m_gpu_blocksize[0] * m_gpu_blocksize[1] * m_gpu_blocksize[2];
+   blocksize.y = 1;
+   blocksize.z = 1;
+   for( int g=0 ; g<mNumberOfGrids; g++ )
+   {
+      if( m_corder )
+	 corr_dev_rev<<<gridsize,blocksize,0,m_cuobj->m_stream[st]>>>( m_iStart[g], m_iEnd[g], m_jStart[g], m_jEnd[g],
+								m_kStart[g], m_kEnd[g], a_Up[g].dev_ptr(), a_Lu[g].dev_ptr(),
+								a_F[g].dev_ptr(), a_Rho[g].dev_ptr(), dt4,
+								m_ghost_points );
+      else
+	 corr_dev<<<gridsize,blocksize,0,m_cuobj->m_stream[st]>>>( m_iStart[g], m_iEnd[g], m_jStart[g], m_jEnd[g],
+								m_kStart[g], m_kEnd[g], a_Up[g].dev_ptr(), a_Lu[g].dev_ptr(),
+								a_F[g].dev_ptr(), a_Rho[g].dev_ptr(), dt4,
+								m_ghost_points );
+      CHECK_ERROR("evalCorrectorCU")
+   }
+#endif
+}
+
+//-----------------------------------------------------------------------
+void EW::addSuperGridDampingCU(vector<Sarray> & a_Up, vector<Sarray> & a_U,
+			     vector<Sarray> & a_Um, vector<Sarray> & a_Rho, int st )
+{
+#ifdef SW4_CUDA
+   dim3 gridsize, blocksize;
+   gridsize.x  = m_gpu_gridsize[0];
+   gridsize.y  = m_gpu_gridsize[1];
+   gridsize.z  = m_gpu_gridsize[2];
+   blocksize.x = m_gpu_blocksize[0];
+   blocksize.y = m_gpu_blocksize[1];
+   blocksize.z = m_gpu_blocksize[2];
+   for(int g=0 ; g<mNumberOfCartesianGrids; g++ )
+   {
+      if( m_sg_damping_order == 4 )
       {
-        dev_BCForcing[g][side] = NULL;
-        if (m_bcType[g][side] == bStressFree || m_bcType[g][side] == bDirichlet || m_bcType[g][side] == bSuperGrid)
-        {
-          size_t nBytes = sizeof(float_sw4)*3*m_NumberOfBCPoints[g][side];
-          retcode  = cudaMalloc((void**) &dev_BCForcing[g][side], nBytes );
-          if( retcode != cudaSuccess )
-          {
-             cout << "Error, EW::copy_bcforcing_arrays_to_device cudaMalloc x returned " << cudaGetErrorString(retcode) << endl;
-             exit(-1);
+	 if( m_corder )
+         {
+           int ni = m_iEnd[g] - m_iStart[g] + 1 - 2*m_ghost_points;
+           int nj = m_jEnd[g] - m_jStart[g] + 1 - 2*m_ghost_points;
+           int nk = m_kEnd[g] - m_kStart[g] + 1 - 2*m_ghost_points;
+           const dim3 block(ADDSGD4_BLOCKX,ADDSGD4_BLOCKY,1);
+           dim3 grid;
+           grid.x = (ni + block.x - 1) / block.x;
+           grid.y = (nj + block.y - 1) / block.y;
+           grid.z = 1; 
+           addsgd4_dev_rev_v2<<<grid,block,0,m_cuobj->m_stream[st]>>>(
+             m_iStart[g], m_iEnd[g], m_jStart[g], m_jEnd[g],
+             m_kStart[g], m_kEnd[g], a_Up[g].dev_ptr(),
+             a_U[g].dev_ptr(), a_Um[g].dev_ptr(), a_Rho[g].dev_ptr(),
+             dev_sg_dc_x[g], dev_sg_dc_y[g], dev_sg_dc_z[g],
+             dev_sg_str_x[g], dev_sg_str_y[g], dev_sg_str_z[g],
+             dev_sg_corner_x[g], dev_sg_corner_y[g], dev_sg_corner_z[g],
+             m_supergrid_damping_coefficient, m_ghost_points );
+           CHECK_ERROR("addsgd4_dev_rev");
+         }
+	 else
+         {
+           int ni = m_iEnd[g] - m_iStart[g] + 1 - 2*m_ghost_points;
+           int nj = m_jEnd[g] - m_jStart[g] + 1 - 2*m_ghost_points;
+           int nk = m_kEnd[g] - m_kStart[g] + 1 - 2*m_ghost_points;
+           const dim3 block(ADDSGD4_BLOCKX,ADDSGD4_BLOCKY,1);
+           dim3 grid;
+           grid.x = (ni + block.x - 1) / block.x;
+           grid.y = (nj + block.y - 1) / block.y;
+           grid.z = 1; 
+           addsgd4_dev_v2<<<grid,block,0,m_cuobj->m_stream[st]>>>(
+             m_iStart[g], m_iEnd[g], m_jStart[g], m_jEnd[g],
+             m_kStart[g], m_kEnd[g], a_Up[g].dev_ptr(),
+             a_U[g].dev_ptr(), a_Um[g].dev_ptr(), a_Rho[g].dev_ptr(),
+             dev_sg_dc_x[g], dev_sg_dc_y[g], dev_sg_dc_z[g],
+             dev_sg_str_x[g], dev_sg_str_y[g], dev_sg_str_z[g],
+             dev_sg_corner_x[g], dev_sg_corner_y[g], dev_sg_corner_z[g],
+             m_supergrid_damping_coefficient, m_ghost_points );
+           CHECK_ERROR("addsgd4_dev_rev");
           }
-          retcode = cudaMemcpy( dev_BCForcing[g][side], BCForcing[g][side], nBytes, cudaMemcpyHostToDevice );
-          if( retcode != cudaSuccess )
-          {
-            cout << "Error, EW::copy_bcforcing_arrays_to_device cudaMemcpy x returned " << cudaGetErrorString(retcode) << endl;
-            exit(-1);
-          }
-        }
       }
-    }
-  }
+      else if(  m_sg_damping_order == 6 )
+      {
+	 if( m_corder )
+	    addsgd6_dev_rev<<<gridsize,blocksize,0,m_cuobj->m_stream[st]>>>( m_iStart[g], m_iEnd[g], m_jStart[g], m_jEnd[g],
+								      m_kStart[g], m_kEnd[g], a_Up[g].dev_ptr(), 
+                                                                      a_U[g].dev_ptr(), a_Um[g].dev_ptr(), a_Rho[g].dev_ptr(),
+								      dev_sg_dc_x[g], dev_sg_dc_y[g], dev_sg_dc_z[g],
+								      dev_sg_str_x[g], dev_sg_str_y[g], dev_sg_str_z[g],
+								      dev_sg_corner_x[g], dev_sg_corner_y[g], dev_sg_corner_z[g],
+								      m_supergrid_damping_coefficient, m_ghost_points );
+	 else
+	    addsgd6_dev<<<gridsize,blocksize,0,m_cuobj->m_stream[st]>>>( m_iStart[g], m_iEnd[g], m_jStart[g], m_jEnd[g],
+								      m_kStart[g], m_kEnd[g], a_Up[g].dev_ptr(), 
+                                                                      a_U[g].dev_ptr(), a_Um[g].dev_ptr(), a_Rho[g].dev_ptr(),
+								      dev_sg_dc_x[g], dev_sg_dc_y[g], dev_sg_dc_z[g],
+								      dev_sg_str_x[g], dev_sg_str_y[g], dev_sg_str_z[g],
+								      dev_sg_corner_x[g], dev_sg_corner_y[g], dev_sg_corner_z[g],
+								      m_supergrid_damping_coefficient, m_ghost_points );
+	 CHECK_ERROR("addsgd6_dev")
+      }
+   }
+
+   if( m_topography_exists )
+   {
+      int g=mNumberOfGrids-1;
+      if( m_sg_damping_order == 4 )
+      {
+	 if( m_corder )
+            addsgd4c_dev_rev<<<gridsize,blocksize,0,m_cuobj->m_stream[st]>>>(
+              m_iStart[g], m_iEnd[g], m_jStart[g], m_jEnd[g], m_kStart[g], m_kEnd[g], 
+              a_Up[g].dev_ptr(), a_U[g].dev_ptr(), 
+              a_Um[g].dev_ptr(), a_Rho[g].dev_ptr(),
+              dev_sg_dc_x[g], dev_sg_dc_y[g], 
+              dev_sg_str_x[g], dev_sg_str_y[g], 
+              mJ.dev_ptr(), dev_sg_corner_x[g], dev_sg_corner_y[g], 
+              m_supergrid_damping_coefficient, m_ghost_points );
+	 else
+            addsgd4c_dev<<<gridsize,blocksize,0,m_cuobj->m_stream[st]>>>(
+              m_iStart[g], m_iEnd[g], m_jStart[g], m_jEnd[g], m_kStart[g], m_kEnd[g], 
+              a_Up[g].dev_ptr(), a_U[g].dev_ptr(), 
+              a_Um[g].dev_ptr(), a_Rho[g].dev_ptr(),
+              dev_sg_dc_x[g], dev_sg_dc_y[g], 
+              dev_sg_str_x[g], dev_sg_str_y[g], 
+              mJ.dev_ptr(), dev_sg_corner_x[g], dev_sg_corner_y[g], 
+              m_supergrid_damping_coefficient, m_ghost_points );
+      }
+      else if(  m_sg_damping_order == 6 )
+      {
+	 if( m_corder )
+	    addsgd6c_dev_rev<<<gridsize,blocksize,0,m_cuobj->m_stream[st]>>>( 
+              m_iStart[g], m_iEnd[g], m_jStart[g], m_jEnd[g], m_kStart[g], m_kEnd[g], 
+              a_Up[g].dev_ptr(), a_U[g].dev_ptr(), a_Um[g].dev_ptr(), a_Rho[g].dev_ptr(),
+	      dev_sg_dc_x[g], dev_sg_dc_y[g], dev_sg_str_x[g], dev_sg_str_y[g], 
+	      mJ.dev_ptr(), dev_sg_corner_x[g], dev_sg_corner_y[g], 
+              m_supergrid_damping_coefficient, m_ghost_points );
+	 else
+	    addsgd6c_dev<<<gridsize,blocksize,0,m_cuobj->m_stream[st]>>>( 
+              m_iStart[g], m_iEnd[g], m_jStart[g], m_jEnd[g], m_kStart[g], m_kEnd[g], 
+              a_Up[g].dev_ptr(), a_U[g].dev_ptr(), a_Um[g].dev_ptr(), a_Rho[g].dev_ptr(),
+	      dev_sg_dc_x[g], dev_sg_dc_y[g], dev_sg_str_x[g], dev_sg_str_y[g], 
+	      mJ.dev_ptr(), dev_sg_corner_x[g], dev_sg_corner_y[g], 
+              m_supergrid_damping_coefficient, m_ghost_points );
+      }
+   }
 #endif
 }
-
 //-----------------------------------------------------------------------
 
-void EW::copy_bctype_arrays_to_device()
+void EW::setup_device_communication_array()
 {
 #ifdef SW4_CUDA
-  // Set up boundary type array on the deivec
-  if(m_ndevice > 0 )
+  dev_SideEdge_Send_X.resize(mNumberOfGrids);
+  dev_SideEdge_Recv_X.resize(mNumberOfGrids);
+  dev_SideEdge_Send_Y.resize(mNumberOfGrids);
+  dev_SideEdge_Recv_Y.resize(mNumberOfGrids);
+#ifndef SW4_CUDA_AWARE_MPI
+  m_SideEdge_Send_X.resize(mNumberOfGrids);
+  m_SideEdge_Recv_X.resize(mNumberOfGrids);
+  m_SideEdge_Send_Y.resize(mNumberOfGrids);
+  m_SideEdge_Recv_Y.resize(mNumberOfGrids);
+#endif
+
+  if( m_ndevice > 0 )
   {
-    cudaError_t retcode;
-    dev_bcType.resize(mNumberOfGrids);
-    for( int g = 0; g <mNumberOfGrids; g++ )
-    {
-      size_t nBytes = sizeof(boundaryConditionType)*6;
-      retcode = cudaMalloc( (void**) &dev_bcType[g], nBytes );
-      if( retcode != cudaSuccess )
-        cout << "Error, EW::copy_bctype_arrays_to_device cudaMalloc x returned " << cudaGetErrorString(retcode) << endl;
-      retcode = cudaMemcpy( dev_bcType[g], m_bcType[g], nBytes, cudaMemcpyHostToDevice );
-      if( retcode != cudaSuccess )
-        cout << "Error, EW::copy_bctype_arrays_to_device cudaMemcpy x returned " << cudaGetErrorString(retcode) << endl;
-    }
+     cudaError_t retcode;
+
+     for( int g=0 ; g<mNumberOfGrids; g++)
+     {
+
+        int ni = m_iEnd[g] - m_iStart[g] + 1;
+        int nj = m_jEnd[g] - m_jStart[g] + 1;
+        int nk = m_kEnd[g] - m_kStart[g] + 1;
+        int n_m_ppadding1 = 3*nj*nk*m_ppadding;
+        int n_m_ppadding2 = 3*ni*nk*m_ppadding;
+
+        retcode = cudaMalloc( (void**)&dev_SideEdge_Send_X[g], sizeof(float_sw4)*2*(n_m_ppadding1) );
+        if( retcode != cudaSuccess )
+           cout << "Error, EW::setup_device_communication_arra cudaMalloc dev_SideEdge_Send_X returned "
+                << cudaGetErrorString(retcode) << endl;
+
+        retcode = cudaMalloc( (void**)&dev_SideEdge_Recv_X[g], sizeof(float_sw4)*2*(n_m_ppadding1) );
+        if( retcode != cudaSuccess )
+           cout << "Error, EW::setup_device_communication_arra cudaMalloc dev_SideEdge_Recv_X returned "
+                << cudaGetErrorString(retcode) << endl;
+
+        retcode = cudaMalloc( (void**)&dev_SideEdge_Send_Y[g], sizeof(float_sw4)*2*(n_m_ppadding2) );
+        if( retcode != cudaSuccess )
+           cout << "Error, EW::setup_device_communication_arra cudaMalloc dev_SideEdge_Send_Y returned "
+                << cudaGetErrorString(retcode) << endl;
+
+        retcode = cudaMalloc( (void**)&dev_SideEdge_Recv_Y[g], sizeof(float_sw4)*2*(n_m_ppadding2) );
+        if( retcode != cudaSuccess )
+           cout << "Error, EW::setup_device_communication_arra cudaMalloc dev_SideEdge_Recv_Y returned "
+                << cudaGetErrorString(retcode) << endl;
+
+        //retcode = cudaMemset(dev_SideEdge_Send[g], 0.0, sizeof(float_sw4)*2*(n_m_ppadding1+n_m_ppadding2) );
+        //if( retcode != cudaSuccess )
+        //   cout << "Error, EW::setup_device_communication_arra cudaMalloc returned "
+        //        << cudaGetErrorString(retcode) << endl;
+
+        //retcode = cudaMemset(dev_SideEdge_Recv[g], 0.0, sizeof(float_sw4)*2*(n_m_ppadding1+n_m_ppadding2) );
+        //if( retcode != cudaSuccess )
+        //   cout << "Error, EW::setup_device_communication_arra cudaMalloc returned "
+        //        << cudaGetErrorString(retcode) << endl;
+
+
+#ifndef SW4_CUDA_AWARE_MPI
+
+        retcode = cudaMallocHost( (void**)&m_SideEdge_Send_X[g], sizeof(float_sw4)*2*(n_m_ppadding1) );
+        if( retcode != cudaSuccess )
+           cout << "Error, EW::setup_device_communication_arra m_SideEdge_Send_X cudaMallocHost returned "
+                << cudaGetErrorString(retcode) << endl;
+
+        retcode = cudaMallocHost( (void**)&m_SideEdge_Recv_X[g], sizeof(float_sw4)*2*(n_m_ppadding1) );
+        if( retcode != cudaSuccess )
+           cout << "Error, EW::setup_device_communication_arra m_SideEdge_Recv_X cudaMallocHost returned "
+                << cudaGetErrorString(retcode) << endl;
+
+        retcode = cudaMallocHost( (void**)&m_SideEdge_Send_Y[g], sizeof(float_sw4)*2*(n_m_ppadding2) );
+        if( retcode != cudaSuccess )
+           cout << "Error, EW::setup_device_communication_arra m_SideEdge_Send_Y cudaMallocHost returned "
+                << cudaGetErrorString(retcode) << endl;
+
+        retcode = cudaMallocHost( (void**)&m_SideEdge_Recv_Y[g], sizeof(float_sw4)*2*(n_m_ppadding2) );
+        if( retcode != cudaSuccess )
+           cout << "Error, EW::setup_device_communication_arra m_SideEdge_Recv_Y cudaMallocHost returned "
+                << cudaGetErrorString(retcode) << endl;
+
+        //memset( m_SideEdge_Send[g], 0.0, sizeof(float_sw4)*2*(n_m_ppadding1+n_m_ppadding2) );
+
+        //memset( m_SideEdge_Recv[g], 0.0, sizeof(float_sw4)*2*(n_m_ppadding1+n_m_ppadding2) );
+
+#endif
+
+     }
   }
 #endif
 }
 
-//-----------------------------------------------------------------------
 
-void EW::copy_bndrywindow_arrays_to_device()
-{
-#ifdef SW4_CUDA
-  //Set up boundary window array on the deivec
-  if(m_ndevice > 0 )
-  {
-    cudaError_t retcode;
-    dev_BndryWindow.resize(mNumberOfGrids);
-    for( int g = 0; g <mNumberOfGrids; g++ )
-    {
-      size_t nBytes = sizeof(int)*36;
-      retcode = cudaMalloc( (void**) &dev_BndryWindow[g], nBytes );
-      if( retcode != cudaSuccess )
-        cout << "Error, EW::copy_bndrywindow_arrays_to_device cudaMalloc x returned " << cudaGetErrorString(retcode) << endl;
-      retcode = cudaMemcpy( dev_BndryWindow[g], m_BndryWindow[g], nBytes, cudaMemcpyHostToDevice );
-      if( retcode != cudaSuccess )
-        cout << "Error, EW::copy_bndrywindow_arrays_to_device cudaMemcpy x returned " << cudaGetErrorString(retcode) << endl;
-    }
-  }
 #endif
-}
-

@@ -471,14 +471,15 @@ class EW
    bool m_use_dg;
  
    // Halo data communication 
-// These 4 needs to revised   
+#if SW4_Guillaume
    vector<float_sw4*> dev_SideEdge_Send, dev_SideEdge_Recv;
    vector<float_sw4*>  m_SideEdge_Send, m_SideEdge_Recv;
-
+#else
    vector<float_sw4*> dev_SideEdge_Send_X, dev_SideEdge_Recv_X;
    vector<float_sw4*> dev_SideEdge_Send_Y, dev_SideEdge_Recv_Y;
    vector<float_sw4*>  m_SideEdge_Send_X, m_SideEdge_Recv_X;
    vector<float_sw4*>  m_SideEdge_Send_Y, m_SideEdge_Recv_Y;
+#endif
    void setup_device_communication_array();
    void communicate_arrayCU( Sarray& u, int g , int st);
 

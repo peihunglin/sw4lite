@@ -2526,7 +2526,7 @@ void EW::timesteploop( vector<Sarray>& U, vector<Sarray>& Um )
 
 // evaluate right hand side
 
-#if 1
+#if SW4_Guillaume
         // RHS + predictor in the free surface and boundaries, stream 0
         RHSPredCU_upper_boundary (Up, U, Um, mMu, mLambda, mRho, F, 0);
 
@@ -2587,7 +2587,7 @@ void EW::timesteploop( vector<Sarray>& U, vector<Sarray>& Um )
 #endif
 
 
-#if 1
+#if SW4_Guillaume
 
         // RHS + corrector in the free surface and halos (stream 0)
         RHSCorrCU_upper_boundary (Up, Uacc, mMu, mLambda, mRho, F, 0);
@@ -2718,180 +2718,6 @@ void EW::timesteploop( vector<Sarray>& U, vector<Sarray>& Um )
 	 check_for_nan( Up, 1, "Up" );
       }
 
-
-//// all types of forcing...
-//      if( m_cuobj->has_gpu() )
-//	 ForceCU( t, dev_F, false, 1 );
-//      else
-//	 Force( t, F, m_point_sources, false );
-// // Need F on device for predictor, will make this asynchronous:
-//      //      for( int g=0; g < mNumberOfGrids ; g++ )
-//      //	 F[g].copy_to_device(m_cuobj,true,1);
-//
-//      if( m_checkfornan )
-//      {
-//#ifdef SW4_CUDA
-//	 check_for_nan_GPU( F, 1, "F" );
-//	 check_for_nan_GPU( U, 1, "U" );
-//#else
-//	 check_for_nan( F, 1, "F" );
-//	 check_for_nan( U, 1, "U" );
-//#endif
-//      }
-//      time_measure[1] = MPI_Wtime();
-//
-//// evaluate right hand side
-//      if( m_cuobj->has_gpu() )
-//	 evalRHSCU( U, mMu, mLambda, Lu, 0 ); // save Lu in composite grid 'Lu'
-//      else
-//	 evalRHS( U, mMu, mLambda, Lu ); // save Lu in composite grid 'Lu'
-//
-//      if( m_checkfornan )
-//#ifdef SW4_CUDA
-//	 check_for_nan_GPU( Lu, 1, "Lu pred. " );
-//#else      
-//	 check_for_nan( Lu, 1, "Lu pred. " );
-//#endif
-
-//// take predictor step, store in Up
-//      m_cuobj->sync_stream( 0 );
-//      if( m_cuobj->has_gpu() )
-//	 evalPredictorCU( Up, U, Um, mRho, Lu, F, 1 );    
-//      else
-//	 evalPredictor( Up, U, Um, mRho, Lu, F );    
-//
-//      //      if( !(m_cuobj->has_gpu()) )
-//      //         for( int g=0; g < mNumberOfGrids ; g++ )
-//      //         {
-//      //	    Up[g].copy_from_device(m_cuobj,true,1);
-//      //         }
-//
-//      m_cuobj->sync_stream(1);
-//
-//      time_measure[2] = MPI_Wtime();
-
-//// communicate across processor boundaries
-//      if( m_cuobj->has_gpu() )
-//         for(int g=0 ; g < mNumberOfGrids ; g++ )
-//	    communicate_arrayCU( Up[g], g, 0);
-//      else
-//         for(int g=0 ; g < mNumberOfGrids ; g++ )
-//	    communicate_array( Up[g], g );
-//
-//      time_measure[3] = MPI_Wtime();
-
-//// calculate boundary forcing at time t+mDt
-//      if( m_cuobj->has_gpu() )
-//      {
-//         cartesian_bc_forcingCU( t+mDt, BCForcing, m_globalUniqueSources,0);
-//         enforceBCCU( Up, mMu, mLambda, t+mDt, BCForcing, 0);
-//      }
-//      else
-//      {
-//         cartesian_bc_forcing( t+mDt, BCForcing, m_globalUniqueSources );
-//         enforceBC( Up, mMu, mLambda, t+mDt, BCForcing );
-//      }
-//
-//      if( m_checkfornan )
-//	 check_for_nan( Up, 1, "U pred. " );
-//
-//      //      time_measure[3] = MPI_Wtime();
-//      time_measure[4] = MPI_Wtime();
-//
-//      //      if( !(m_cuobj->has_gpu()) )
-//      //         for( int g=0; g < mNumberOfGrids ; g++ )
-//      //	    Up[g].copy_to_device(m_cuobj,true,0);
-//
-//      // Corrector
-//      if( m_cuobj->has_gpu() )
-//	 ForceCU( t, dev_F, true, 1 );
-//      else
-//	 Force( t, F, m_point_sources, true );
-//      //      for( int g=0; g < mNumberOfGrids ; g++ )
-//      //	 F[g].copy_to_device(m_cuobj,true,1);
-//
-//      //      time_measure[4] = MPI_Wtime();
-//      time_measure[5] = MPI_Wtime();
-//
-//      if( m_cuobj->has_gpu() )
-//	 evalDpDmInTimeCU( Up, U, Um, Uacc, 0 ); // store result in Uacc
-//      else
-//	 evalDpDmInTime( Up, U, Um, Uacc ); // store result in Uacc
-//
-//      if( m_checkfornan )
-//#ifdef SW4_CUDA
-//	 check_for_nan_GPU( Uacc, 1, "uacc " );
-//#else
-//	 check_for_nan( Uacc, 1, "uacc " );
-//#endif
-//      if( m_cuobj->has_gpu() )
-//	 evalRHSCU( Uacc, mMu, mLambda, Lu, 0 );
-//      else
-//       	 evalRHS( Uacc, mMu, mLambda, Lu );
-//
-//      if( m_checkfornan )
-//#ifdef SW4_CUDA
-//	 check_for_nan_GPU( Lu, 1, "L(uacc) " );
-//#else
-//	 check_for_nan( Lu, 1, "L(uacc) " );
-//#endif
-//
-//      m_cuobj->sync_stream(0);
-//      if( m_cuobj->has_gpu() )
-//	 evalCorrectorCU( Up, mRho, Lu, F, 1 );
-//      else
-//	 evalCorrector( Up, mRho, Lu, F );
-//      //      time_measure[5] = MPI_Wtime();
-//      time_measure[6] = MPI_Wtime();
-//
-//// add in super-grid damping terms
-//      if ( m_use_supergrid )
-//      {
-//	 if( m_cuobj->has_gpu() )
-//	    addSuperGridDampingCU( Up, U, Um, mRho, 1 );
-//	 else
-//	    addSuperGridDamping( Up, U, Um, mRho );
-//
-//      }
-//
-//      //      if( !(m_cuobj->has_gpu()) )
-//      //         for( int g=0; g < mNumberOfGrids ; g++ )
-//      //	    Up[g].copy_from_device(m_cuobj,true,1);
-//
-//      m_cuobj->sync_stream(1);
-//
-//      //      time_measure[6] = MPI_Wtime();
-//      time_measure[7] = MPI_Wtime();
-//
-//// also check out EW::update_all_boundaries 
-//// communicate across processor boundaries
-//      if( m_cuobj->has_gpu() )
-//         for(int g=0 ; g < mNumberOfGrids ; g++ )
-//	    communicate_arrayCU( Up[g], g, 0 );
-//      else
-//         for(int g=0 ; g < mNumberOfGrids ; g++ )
-//	    communicate_array( Up[g], g );
-//
-//      time_measure[8] = MPI_Wtime();
-//
-//// calculate boundary forcing at time t+mDt (do we really need to call this fcn again???)
-//      if( m_cuobj->has_gpu() )
-//      {
-//         cartesian_bc_forcingCU( t+mDt, BCForcing, m_globalUniqueSources, 0 );
-//         enforceBCCU( Up, mMu, mLambda, t+mDt, BCForcing, 0 );
-//      }
-//      else
-//      {
-//         cartesian_bc_forcing( t+mDt, BCForcing, m_globalUniqueSources );
-//         enforceBC( Up, mMu, mLambda, t+mDt, BCForcing );
-//      }
-//
-//      if( m_checkfornan )
-//	 check_for_nan( Up, 1, "Up" );
-//
-//      if( m_cuobj->has_gpu() )
-//         for( int g=0; g < mNumberOfGrids ; g++ )
-//	    Up[g].copy_from_device(m_cuobj,true,0);
 
 // increment time
       t += mDt;
