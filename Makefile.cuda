@@ -1,9 +1,9 @@
 HOSTNAME := $(shell hostname)
 #HOSTNAME=ray
 ifeq ($(findstring ray,$(HOSTNAME)),ray)
-   NVCC = /usr/local/cuda-8.0/bin/nvcc
+   NVCC = nvcc
    HOSTCOMP = mpicxx
-   MPIPATH = /opt/ibm/spectrum_mpi
+   MPIPATH = //usr/tce/packages/spectrum-mpi/spectrum-mpi-2017.04.03-gcc-4.9.3/
    gpuarch := sm_60
    EXTRA_LINK_FLAGS = -lmpi_ibm -L/usr/tcetmp/packages/lapack/lapack-3.6.0-gfortran-4.8.5/lib -llapack -L/usr/tcetmp/packages/blas/blas-3.6.0-gfortran-4.8.5/lib -lblas -lgfortran
    debugdir := debug_cuda_ray
@@ -36,8 +36,11 @@ ifeq ($(debug),yes)
    CFLAGS    = -g 
 else
    FFLAGS   = -O3 
-   CXXFLAGS = -O3 -x cu -I../src -c -dc -arch=$(gpuarch) -DSW4_CROUTINES -DSW4_CUDA -ccbin $(HOSTCOMP) -Xptxas -v
+   CXXFLAGS = -O3 -x cu -I../src -c -dc -arch=$(gpuarch) -DSW4_CROUTINES -DSW4_CUDA -ccbin $(HOSTCOMP) -Xptxas -v 
    CFLAGS   = -O 
+endif
+ifeq ($(SW4_Guillaume),yes)
+   CXXFLAGS += -DSW4_Guillaume
 endif
 ifdef MPIINC
   CXXFLAGS += -I$(MPIINC)
