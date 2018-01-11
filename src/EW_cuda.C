@@ -320,7 +320,7 @@ void EW::find_cuda_device()
    if( m_ndevice > 0 )
    {
       // create two streams
-      m_cuobj = new EWCuda( m_ndevice, 2 );
+      m_cuobj = new EWCuda( m_ndevice, 3 );
    }
 #endif
    if( m_ndevice == 0 && m_myrank == 0 )
@@ -724,6 +724,97 @@ void EW::pack_HaloArrayCU( Sarray& u, int g , int st)
     }
 #endif
 }
+//-----------------------------------------------------------------------
+
+void EW::pack_HaloArrayCU_X( Sarray& u, int g , int st)
+{
+#ifdef SW4_CUDA
+  REQUIRE2( u.m_nc == 3 || u.m_nc == 1, "Communicate array, only implemented for one- and three-component arrays"
+	    << " nc = " << u.m_nc );
+  int ie = u.m_ie, ib=u.m_ib, je=u.m_je, jb=u.m_jb, kb=u.m_kb;//,ke=u.m_ke;
+  MPI_Status status;
+  dim3 gridsize, blocksize;
+  //gridsize.x  = m_gpu_gridsize[0] * m_gpu_gridsize[1] * m_gpu_gridsize[2];
+  gridsize.x  = 1 * 1 * m_gpu_gridsize[2];
+  gridsize.y  = 1;
+  gridsize.z  = 1;
+  blocksize.x = m_gpu_blocksize[0] * m_gpu_blocksize[1] * m_gpu_blocksize[2];
+  blocksize.y = 1;
+  blocksize.z = 1;
+
+  int ni = m_iEnd[g] - m_iStart[g] + 1;
+  int nj = m_jEnd[g] - m_jStart[g] + 1;
+  int nk = m_kEnd[g] - m_kStart[g] + 1;
+  int n_m_ppadding1 = 3*nj*nk*m_ppadding;
+  int n_m_ppadding2 = 3*ni*nk*m_ppadding;
+  int idx_left = 0;
+  int idx_right = n_m_ppadding2;
+  int idx_up = 2*n_m_ppadding2;
+  int idx_down = 2*n_m_ppadding2 + n_m_ppadding1;
+
+  if( u.m_nc == 3 )
+    {
+      // X-direction communication
+      if(m_corder)
+        BufferToHaloKernelY_dev_rev<<<gridsize, blocksize, 0, m_cuobj->m_stream[st]>>>
+          ( &u(1,ie-(2*m_ppadding-1),jb,kb,true), &u(1,ib+m_ppadding,jb,kb,true),
+            &dev_SideEdge_Send[g][idx_up], &dev_SideEdge_Send[g][idx_down],
+            ni, nj, nk, m_ppadding, m_neighbor[0], m_neighbor[1], MPI_PROC_NULL );
+      else
+        BufferToHaloKernelY_dev<<<gridsize, blocksize, 0, m_cuobj->m_stream[st]>>>
+          ( &u(1,ie-(2*m_ppadding-1),jb,kb,true), &u(1,ib+m_ppadding,jb,kb,true),
+            &dev_SideEdge_Send[g][idx_up], &dev_SideEdge_Send[g][idx_down],
+            ni, nj, nk, m_ppadding, m_neighbor[0],  m_neighbor[1], MPI_PROC_NULL );
+      CheckCudaCall(cudaGetLastError(), "BufferToHaloKernel<<<,>>>(...)", __FILE__, __LINE__);
+    }
+#endif
+}
+//-----------------------------------------------------------------------
+
+void EW::pack_HaloArrayCU_Y( Sarray& u, int g , int st)
+{
+#ifdef SW4_CUDA
+  REQUIRE2( u.m_nc == 3 || u.m_nc == 1, "Communicate array, only implemented for one- and three-component arrays"
+	    << " nc = " << u.m_nc );
+  int ie = u.m_ie, ib=u.m_ib, je=u.m_je, jb=u.m_jb, kb=u.m_kb;//,ke=u.m_ke;
+  MPI_Status status;
+  dim3 gridsize, blocksize;
+  //gridsize.x  = m_gpu_gridsize[0] * m_gpu_gridsize[1] * m_gpu_gridsize[2];
+  gridsize.x  = 1 * 1 * m_gpu_gridsize[2];
+  gridsize.y  = 1;
+  gridsize.z  = 1;
+  blocksize.x = m_gpu_blocksize[0] * m_gpu_blocksize[1] * m_gpu_blocksize[2];
+  blocksize.y = 1;
+  blocksize.z = 1;
+
+  int ni = m_iEnd[g] - m_iStart[g] + 1;
+  int nj = m_jEnd[g] - m_jStart[g] + 1;
+  int nk = m_kEnd[g] - m_kStart[g] + 1;
+  int n_m_ppadding1 = 3*nj*nk*m_ppadding;
+  int n_m_ppadding2 = 3*ni*nk*m_ppadding;
+  int idx_left = 0;
+  int idx_right = n_m_ppadding2;
+  int idx_up = 2*n_m_ppadding2;
+  int idx_down = 2*n_m_ppadding2 + n_m_ppadding1;
+
+  if( u.m_nc == 3 )
+    {
+      // Y-direction communication	 
+      if(m_corder)
+        BufferToHaloKernelX_dev_rev<<<gridsize, blocksize, 0, m_cuobj->m_stream[st]>>>
+          ( &u(1,ib,jb+m_ppadding,kb,true), &u(1,ib,je-(2*m_ppadding-1),kb,true),
+            &dev_SideEdge_Send[g][idx_left], &dev_SideEdge_Send[g][idx_right],
+            ni, nj, nk, m_ppadding, m_neighbor[2], m_neighbor[3], MPI_PROC_NULL );
+      else
+        BufferToHaloKernelX_dev<<<gridsize, blocksize, 0, m_cuobj->m_stream[st] >>>
+          ( &u(1,ib,jb+m_ppadding,kb,true), &u(1,ib,je-(2*m_ppadding-1),kb,true), 
+            &dev_SideEdge_Send[g][idx_left], &dev_SideEdge_Send[g][idx_right],
+            ni, nj, nk, m_ppadding, m_neighbor[2], m_neighbor[3], MPI_PROC_NULL );
+      CheckCudaCall(cudaGetLastError(), "BufferToHaloKernel<<<,>>>(...)", __FILE__, __LINE__);
+      
+    }
+#endif
+}
 
 //-----------------------------------------------------------------------
 
@@ -780,6 +871,98 @@ void EW::unpack_HaloArrayCU( Sarray& u, int g , int st)
             m_neighbor[0],  m_neighbor[1], MPI_PROC_NULL );
       CheckCudaCall(cudaGetLastError(), "HaloToBufferKernel<<<,>>>(...)", __FILE__, __LINE__);
 
+    }
+#endif
+}
+//-----------------------------------------------------------------------
+
+void EW::unpack_HaloArrayCU_X( Sarray& u, int g , int st)
+{
+#ifdef SW4_CUDA
+  REQUIRE2( u.m_nc == 3 || u.m_nc == 1, "Communicate array, only implemented for one- and three-component arrays"
+	    << " nc = " << u.m_nc );
+  int ie = u.m_ie, ib=u.m_ib, je=u.m_je, jb=u.m_jb, kb=u.m_kb;//,ke=u.m_ke;
+  MPI_Status status;
+  dim3 gridsize, blocksize;
+  //gridsize.x  = m_gpu_gridsize[0] * m_gpu_gridsize[1] * m_gpu_gridsize[2];
+  gridsize.x  = 1 * 1 * m_gpu_gridsize[2];
+  gridsize.y  = 1;
+  gridsize.z  = 1;
+  blocksize.x = m_gpu_blocksize[0] * m_gpu_blocksize[1] * m_gpu_blocksize[2];
+  blocksize.y = 1;
+  blocksize.z = 1;
+
+  int ni = m_iEnd[g] - m_iStart[g] + 1;
+  int nj = m_jEnd[g] - m_jStart[g] + 1;
+  int nk = m_kEnd[g] - m_kStart[g] + 1;
+  int n_m_ppadding1 = 3*nj*nk*m_ppadding;
+  int n_m_ppadding2 = 3*ni*nk*m_ppadding;
+  int idx_left = 0;
+  int idx_right = n_m_ppadding2;
+  int idx_up = 2*n_m_ppadding2;
+  int idx_down = 2*n_m_ppadding2 + n_m_ppadding1;
+
+  if( u.m_nc == 3 )
+    {
+      // X-direction communication
+      if(m_corder)
+        HaloToBufferKernelY_dev_rev<<<gridsize, blocksize, 0, m_cuobj->m_stream[st]>>>
+          ( &u(1,ie-(m_ppadding-1),jb,kb,true), &u(1,ib,jb,kb,true),
+            &dev_SideEdge_Recv[g][idx_up], &dev_SideEdge_Recv[g][idx_down], ni, nj, nk, m_ppadding,
+            m_neighbor[0], m_neighbor[1], MPI_PROC_NULL );
+      else
+        HaloToBufferKernelY_dev<<<gridsize, blocksize, 0, m_cuobj->m_stream[st] >>>
+          ( &u(1,ie-(m_ppadding-1),jb,kb,true), &u(1,ib,jb,kb,true),
+            &dev_SideEdge_Recv[g][idx_up], &dev_SideEdge_Recv[g][idx_down], ni, nj, nk, m_ppadding,
+            m_neighbor[0],  m_neighbor[1], MPI_PROC_NULL );
+      CheckCudaCall(cudaGetLastError(), "HaloToBufferKernel<<<,>>>(...)", __FILE__, __LINE__);
+
+    }
+#endif
+}
+//-----------------------------------------------------------------------
+
+void EW::unpack_HaloArrayCU_Y( Sarray& u, int g , int st)
+{
+#ifdef SW4_CUDA
+  REQUIRE2( u.m_nc == 3 || u.m_nc == 1, "Communicate array, only implemented for one- and three-component arrays"
+	    << " nc = " << u.m_nc );
+  int ie = u.m_ie, ib=u.m_ib, je=u.m_je, jb=u.m_jb, kb=u.m_kb;//,ke=u.m_ke;
+  MPI_Status status;
+  dim3 gridsize, blocksize;
+  //gridsize.x  = m_gpu_gridsize[0] * m_gpu_gridsize[1] * m_gpu_gridsize[2];
+  gridsize.x  = 1 * 1 * m_gpu_gridsize[2];
+  gridsize.y  = 1;
+  gridsize.z  = 1;
+  blocksize.x = m_gpu_blocksize[0] * m_gpu_blocksize[1] * m_gpu_blocksize[2];
+  blocksize.y = 1;
+  blocksize.z = 1;
+
+  int ni = m_iEnd[g] - m_iStart[g] + 1;
+  int nj = m_jEnd[g] - m_jStart[g] + 1;
+  int nk = m_kEnd[g] - m_kStart[g] + 1;
+  int n_m_ppadding1 = 3*nj*nk*m_ppadding;
+  int n_m_ppadding2 = 3*ni*nk*m_ppadding;
+  int idx_left = 0;
+  int idx_right = n_m_ppadding2;
+  int idx_up = 2*n_m_ppadding2;
+  int idx_down = 2*n_m_ppadding2 + n_m_ppadding1;
+
+  if( u.m_nc == 3 )
+    {
+      // Y-direction communication
+      if(m_corder)
+        HaloToBufferKernelX_dev_rev<<<gridsize, blocksize, 0, m_cuobj->m_stream[st] >>>
+          ( &u(1,ib,jb,kb,true), &u(1,ib,je-(m_ppadding-1),kb,true),
+            &dev_SideEdge_Recv[g][idx_left], &dev_SideEdge_Recv[g][idx_right],
+            ni, nj, nk, m_ppadding, m_neighbor[2], m_neighbor[3], MPI_PROC_NULL );
+      else
+        HaloToBufferKernelX_dev<<<gridsize, blocksize, 0, m_cuobj->m_stream[st]>>>
+          ( &u(1,ib,jb,kb,true), &u(1,ib,je-(m_ppadding-1),kb,true),
+            &dev_SideEdge_Recv[g][idx_left], &dev_SideEdge_Recv[g][idx_right],
+            ni, nj, nk, m_ppadding, m_neighbor[2], m_neighbor[3], MPI_PROC_NULL );
+      CheckCudaCall(cudaGetLastError(), "HaloToBufferKernel<<<,>>>(...)", __FILE__, __LINE__);
+      
     }
 #endif
 }
@@ -1157,6 +1340,236 @@ void EW::communicate_arrayCU( Sarray& u, int g , int st)
         cudaMemcpyAsync(&dev_SideEdge_Recv[g][idx_down], &m_SideEdge_Recv[g][idx_down],
                         n_m_ppadding1*sizeof(float_sw4), cudaMemcpyHostToDevice, m_cuobj->m_stream[st] );
 
+      if (m_neighbor[2] != MPI_PROC_NULL)
+        cudaMemcpyAsync(&dev_SideEdge_Recv[g][idx_left], &m_SideEdge_Recv[g][idx_left],
+                        n_m_ppadding2*sizeof(float_sw4), cudaMemcpyHostToDevice, m_cuobj->m_stream[st] );
+
+      if (m_neighbor[3] != MPI_PROC_NULL)
+        cudaMemcpyAsync(&dev_SideEdge_Recv[g][idx_right], &m_SideEdge_Recv[g][idx_right],
+                        n_m_ppadding2*sizeof(float_sw4), cudaMemcpyHostToDevice, m_cuobj->m_stream[st] );
+      
+      retcode = cudaStreamSynchronize(m_cuobj->m_stream[st]);
+      if( retcode != cudaSuccess )
+        {
+          cout << "Error communicate_array cudaMemcpy returned (Host2Device) "
+               << cudaGetErrorString(retcode) << endl;
+          exit(1);
+        }
+
+#endif
+   }
+#endif
+}
+//-----------------------------------------------------------------------
+
+void EW::communicate_arrayCU_X( Sarray& u, int g , int st)
+{
+#ifdef SW4_CUDA
+   REQUIRE2( u.m_nc == 3 || u.m_nc == 1, "Communicate array, only implemented for one- and three-component arrays"
+             << " nc = " << u.m_nc );
+   int ie = u.m_ie, ib=u.m_ib, je=u.m_je, jb=u.m_jb, kb=u.m_kb;//,ke=u.m_ke;
+   MPI_Status status;
+   cudaError_t retcode;
+   dim3 gridsize, blocksize;
+   //gridsize.x  = m_gpu_gridsize[0] * m_gpu_gridsize[1] * m_gpu_gridsize[2];
+   gridsize.x  = 1 * 1 * m_gpu_gridsize[2];
+   gridsize.y  = 1;
+   gridsize.z  = 1;
+   blocksize.x = m_gpu_blocksize[0] * m_gpu_blocksize[1] * m_gpu_blocksize[2];
+   blocksize.y = 1;
+   blocksize.z = 1;
+
+   int ni = m_iEnd[g] - m_iStart[g] + 1;
+   int nj = m_jEnd[g] - m_jStart[g] + 1;
+   int nk = m_kEnd[g] - m_kStart[g] + 1;
+   int n_m_ppadding1 = 3*nj*nk*m_ppadding;
+   int n_m_ppadding2 = 3*ni*nk*m_ppadding;
+   int idx_left = 0;
+   int idx_right = n_m_ppadding2;
+   int idx_up = 2*n_m_ppadding2;
+   int idx_down = 2*n_m_ppadding2 + n_m_ppadding1;
+
+   if( u.m_nc == 1 )
+   {
+      int xtag1 = 345;
+      int xtag2 = 346;
+      int ytag1 = 347;
+      int ytag2 = 348;
+      int grid = g;
+      // X-direction communication
+      MPI_Sendrecv( &u(ie-(2*m_ppadding-1),jb,kb,true), 1, m_send_type1[2*grid], m_neighbor[1], xtag1,
+                    &u(ib,jb,kb,true), 1, m_send_type1[2*grid], m_neighbor[0], xtag1,
+                    m_cartesian_communicator, &status );
+      MPI_Sendrecv( &u(ib+m_ppadding,jb,kb,true), 1, m_send_type1[2*grid], m_neighbor[0], xtag2,
+                    &u(ie-(m_ppadding-1),jb,kb,true), 1, m_send_type1[2*grid], m_neighbor[1], xtag2,
+                    m_cartesian_communicator, &status );
+   }
+   else if( u.m_nc == 3 )
+   {
+      int xtag1 = 345;
+      int xtag2 = 346;
+      int ytag1 = 347;
+      int ytag2 = 348;
+
+      // Packing / unpacking of the array to send into the linear memory communication buffers 
+      // is done outside of this subroutine.
+
+#ifdef SW4_CUDA_AWARE_MPI
+
+      SafeCudaCall( cudaStreamSynchronize(m_cuobj->m_stream[st]) );
+
+      // X-direction communication
+      MPI_Sendrecv(&dev_SideEdge_Send[g][idx_up], n_m_ppadding1, m_mpifloat,
+                   m_neighbor[1], xtag1, &dev_SideEdge_Recv[g][idx_down],
+		   n_m_ppadding1, m_mpifloat, m_neighbor[0], xtag1, m_cartesian_communicator, &status);
+
+      MPI_Sendrecv(&dev_SideEdge_Send[g][idx_down], n_m_ppadding1, m_mpifloat,
+                   m_neighbor[0], xtag2, &dev_SideEdge_Recv[g][idx_up],
+		   n_m_ppadding1, m_mpifloat, m_neighbor[1], xtag2, m_cartesian_communicator, &status);
+
+#else
+
+      // Copy buffers to host
+      if (m_neighbor[1] != MPI_PROC_NULL)
+        cudaMemcpyAsync(&m_SideEdge_Send[g][idx_up], &dev_SideEdge_Send[g][idx_up],
+                        n_m_ppadding1*sizeof(float_sw4), cudaMemcpyDeviceToHost, m_cuobj->m_stream[st]);
+
+      if (m_neighbor[0] != MPI_PROC_NULL)
+        cudaMemcpyAsync(&m_SideEdge_Send[g][idx_down], &dev_SideEdge_Send[g][idx_down],
+                        n_m_ppadding1*sizeof(float_sw4), cudaMemcpyDeviceToHost, m_cuobj->m_stream[st]);
+      retcode = cudaStreamSynchronize(m_cuobj->m_stream[st]);
+      if( retcode != cudaSuccess )
+        {
+          cout << "Error communicate_array cudaMemcpy returned (DeviceToHost) "
+               << cudaGetErrorString(retcode) << endl;
+          exit(1);
+        }
+
+      // Send and receive with MPI
+      MPI_Sendrecv(&m_SideEdge_Send[g][idx_up], n_m_ppadding1, m_mpifloat,
+                   m_neighbor[1], xtag1, &m_SideEdge_Recv[g][idx_down],
+                   n_m_ppadding1, m_mpifloat, m_neighbor[0], xtag1, m_cartesian_communicator, &status);
+
+      MPI_Sendrecv(&m_SideEdge_Send[g][idx_down], n_m_ppadding1, m_mpifloat,
+                   m_neighbor[0], xtag2, &m_SideEdge_Recv[g][idx_up],
+                   n_m_ppadding1, m_mpifloat, m_neighbor[1], xtag2, m_cartesian_communicator, &status);
+      
+      // Copy buffers to device
+      if (m_neighbor[1] != MPI_PROC_NULL)
+        cudaMemcpyAsync(&dev_SideEdge_Recv[g][idx_up], &m_SideEdge_Recv[g][idx_up],
+                        n_m_ppadding1*sizeof(float_sw4), cudaMemcpyHostToDevice, m_cuobj->m_stream[st] );
+
+      if (m_neighbor[0] != MPI_PROC_NULL)
+        cudaMemcpyAsync(&dev_SideEdge_Recv[g][idx_down], &m_SideEdge_Recv[g][idx_down],
+                        n_m_ppadding1*sizeof(float_sw4), cudaMemcpyHostToDevice, m_cuobj->m_stream[st] );
+
+      retcode = cudaStreamSynchronize(m_cuobj->m_stream[st]);
+      if( retcode != cudaSuccess )
+        {
+          cout << "Error communicate_array cudaMemcpy returned (Host2Device) "
+               << cudaGetErrorString(retcode) << endl;
+          exit(1);
+        }
+
+#endif
+   }
+#endif
+}
+//-----------------------------------------------------------------------
+
+void EW::communicate_arrayCU_Y( Sarray& u, int g , int st)
+{
+#ifdef SW4_CUDA
+   REQUIRE2( u.m_nc == 3 || u.m_nc == 1, "Communicate array, only implemented for one- and three-component arrays"
+             << " nc = " << u.m_nc );
+   int ie = u.m_ie, ib=u.m_ib, je=u.m_je, jb=u.m_jb, kb=u.m_kb;//,ke=u.m_ke;
+   MPI_Status status;
+   cudaError_t retcode;
+   dim3 gridsize, blocksize;
+   //gridsize.x  = m_gpu_gridsize[0] * m_gpu_gridsize[1] * m_gpu_gridsize[2];
+   gridsize.x  = 1 * 1 * m_gpu_gridsize[2];
+   gridsize.y  = 1;
+   gridsize.z  = 1;
+   blocksize.x = m_gpu_blocksize[0] * m_gpu_blocksize[1] * m_gpu_blocksize[2];
+   blocksize.y = 1;
+   blocksize.z = 1;
+
+   int ni = m_iEnd[g] - m_iStart[g] + 1;
+   int nj = m_jEnd[g] - m_jStart[g] + 1;
+   int nk = m_kEnd[g] - m_kStart[g] + 1;
+   int n_m_ppadding1 = 3*nj*nk*m_ppadding;
+   int n_m_ppadding2 = 3*ni*nk*m_ppadding;
+   int idx_left = 0;
+   int idx_right = n_m_ppadding2;
+   int idx_up = 2*n_m_ppadding2;
+   int idx_down = 2*n_m_ppadding2 + n_m_ppadding1;
+
+   if( u.m_nc == 1 )
+   {
+      int xtag1 = 345;
+      int xtag2 = 346;
+      int ytag1 = 347;
+      int ytag2 = 348;
+      int grid = g;
+      //Y-direction communication
+      MPI_Sendrecv( &u(ib,je-(2*m_ppadding-1),kb,true), 1, m_send_type1[2*grid+1], m_neighbor[3], ytag1,
+                    &u(ib,jb,kb,true), 1, m_send_type1[2*grid+1], m_neighbor[2], ytag1,
+                    m_cartesian_communicator, &status );
+      MPI_Sendrecv( &u(ib,jb+m_ppadding,kb,true), 1, m_send_type1[2*grid+1], m_neighbor[2], ytag2,
+                    &u(ib,je-(m_ppadding-1),kb,true), 1, m_send_type1[2*grid+1], m_neighbor[3], ytag2,
+                    m_cartesian_communicator, &status );
+   }
+   else if( u.m_nc == 3 )
+   {
+      int xtag1 = 345;
+      int xtag2 = 346;
+      int ytag1 = 347;
+      int ytag2 = 348;
+
+      // Packing / unpacking of the array to send into the linear memory communication buffers 
+      // is done outside of this subroutine.
+
+#ifdef SW4_CUDA_AWARE_MPI
+
+      SafeCudaCall( cudaStreamSynchronize(m_cuobj->m_stream[st]) );
+
+      // Y-direction communication
+      MPI_Sendrecv(&dev_SideEdge_Send[g][idx_right], n_m_ppadding2, m_mpifloat,
+                   m_neighbor[3], ytag2, &dev_SideEdge_Recv[g][idx_left],
+                   n_m_ppadding2, m_mpifloat, m_neighbor[2], ytag2, m_cartesian_communicator, &status);
+      MPI_Sendrecv(&dev_SideEdge_Send[g][idx_left], n_m_ppadding2, m_mpifloat,
+                   m_neighbor[2], ytag1, &dev_SideEdge_Recv[g][idx_right],
+                   n_m_ppadding2, m_mpifloat, m_neighbor[3], ytag1, m_cartesian_communicator, &status);
+
+#else
+
+      // Copy buffers to host
+      if (m_neighbor[2] != MPI_PROC_NULL)
+        cudaMemcpyAsync(&m_SideEdge_Send[g][idx_left], &dev_SideEdge_Send[g][idx_left],
+                        n_m_ppadding2*sizeof(float_sw4), cudaMemcpyDeviceToHost, m_cuobj->m_stream[st]);
+
+      if (m_neighbor[3] != MPI_PROC_NULL)
+        cudaMemcpyAsync(&m_SideEdge_Send[g][idx_right], &dev_SideEdge_Send[g][idx_right],
+                        n_m_ppadding2*sizeof(float_sw4), cudaMemcpyDeviceToHost, m_cuobj->m_stream[st]);
+      
+      retcode = cudaStreamSynchronize(m_cuobj->m_stream[st]);
+      if( retcode != cudaSuccess )
+        {
+          cout << "Error communicate_array cudaMemcpy returned (DeviceToHost) "
+               << cudaGetErrorString(retcode) << endl;
+          exit(1);
+        }
+
+      // Send and receive with MPI
+      MPI_Sendrecv(&m_SideEdge_Send[g][idx_left], n_m_ppadding2, m_mpifloat,
+                   m_neighbor[2], ytag1, &m_SideEdge_Recv[g][idx_right],
+                   n_m_ppadding2, m_mpifloat, m_neighbor[3], ytag1, m_cartesian_communicator, &status);
+
+      MPI_Sendrecv(&m_SideEdge_Send[g][idx_right], n_m_ppadding2, m_mpifloat,
+                   m_neighbor[3], ytag2, &m_SideEdge_Recv[g][idx_left],
+                   n_m_ppadding2, m_mpifloat, m_neighbor[2], ytag2, m_cartesian_communicator, &status);      
+
+      // Copy buffers to device
       if (m_neighbor[2] != MPI_PROC_NULL)
         cudaMemcpyAsync(&dev_SideEdge_Recv[g][idx_left], &m_SideEdge_Recv[g][idx_left],
                         n_m_ppadding2*sizeof(float_sw4), cudaMemcpyHostToDevice, m_cuobj->m_stream[st] );

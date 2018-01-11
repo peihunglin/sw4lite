@@ -2527,13 +2527,25 @@ void EW::timesteploop( vector<Sarray>& U, vector<Sarray>& Um )
 // evaluate right hand side
 
 #if SW4_Guillaume
+        cudaEvent_t event;
+        cudaEventCreate (&event);  
+        cudaEventRecord (event, m_cuobj->m_stream[0]);
         // RHS + predictor in the free surface and boundaries, stream 0
         RHSPredCU_upper_boundary (Up, U, Um, mMu, mLambda, mRho, F, 0);
+        cudaStreamWaitEvent ( m_cuobj->m_stream[2], event,0 ); 
 
-        // Pack halos into communication buffers (stream 0)
+//        // Pack halos into communication buffers (stream 0)
+//        for(int g=0 ; g < mNumberOfGrids ; g++ )
+//          pack_HaloArrayCU (Up[g], g, 0);
         for(int g=0 ; g < mNumberOfGrids ; g++ )
-          pack_HaloArrayCU (Up[g], g, 0);
-        
+        {
+          pack_HaloArrayCU_X (Up[g], g, 0);
+          communicate_arrayCU_X( Up[g], g, 0);
+          unpack_HaloArrayCU_X (Up[g], g, 0);
+          pack_HaloArrayCU_Y (Up[g], g, 2);
+          communicate_arrayCU_Y( Up[g], g, 2);
+          unpack_HaloArrayCU_Y (Up[g], g, 2);
+        } 
         // Wait for stream 0 to complete
         m_cuobj->sync_stream(0);
 
@@ -2542,12 +2554,12 @@ void EW::timesteploop( vector<Sarray>& U, vector<Sarray>& Um )
 
          time_measure[2] = MPI_Wtime();
         // communicate across processor boundaries (stream 0)
-        for(int g=0 ; g < mNumberOfGrids ; g++ )
-          communicate_arrayCU( Up[g], g, 0);
+//        for(int g=0 ; g < mNumberOfGrids ; g++ )
+//          communicate_arrayCU( Up[g], g, 0);
 
         // Unpack halos from communication buffers (stream 0)
-        for(int g=0 ; g < mNumberOfGrids ; g++ )
-          unpack_HaloArrayCU (Up[g], g, 0);
+//        for(int g=0 ; g < mNumberOfGrids ; g++ )
+//          unpack_HaloArrayCU (Up[g], g, 0);
 
         // Synchronize all the streams
         cudaDeviceSynchronize();
@@ -2589,15 +2601,27 @@ void EW::timesteploop( vector<Sarray>& U, vector<Sarray>& Um )
 
 #if SW4_Guillaume
 
+        cudaEventRecord (event, m_cuobj->m_stream[0]);
         // RHS + corrector in the free surface and halos (stream 0)
         RHSCorrCU_upper_boundary (Up, Uacc, mMu, mLambda, mRho, F, 0);
 
         // Add super grid damping terms in the free surface and halos (stream 0)
         addSuperGridDampingCU_upper_boundary (Up, U, Um, mRho, 0);
 
+        cudaStreamWaitEvent ( m_cuobj->m_stream[2], event ,0); 
+
         // Pack halos into communication buffers (stream 0)
+//        for(int g=0 ; g < mNumberOfGrids ; g++ )
+//          pack_HaloArrayCU (Up[g], g, 0);
         for(int g=0 ; g < mNumberOfGrids ; g++ )
-          pack_HaloArrayCU (Up[g], g, 0);
+        {
+          pack_HaloArrayCU_X (Up[g], g, 0);
+          communicate_arrayCU_X( Up[g], g, 0 );
+          unpack_HaloArrayCU_X (Up[g], g, 0);
+          pack_HaloArrayCU_Y (Up[g], g, 2);
+          communicate_arrayCU_Y( Up[g], g, 2 );
+          unpack_HaloArrayCU_Y (Up[g], g, 2);
+        }
 
         // Wait for stream 0 to complete
         m_cuobj->sync_stream(0);
@@ -2612,12 +2636,12 @@ void EW::timesteploop( vector<Sarray>& U, vector<Sarray>& Um )
         m_cuobj->sync_stream(1);
 
         // communicate across processor boundaries (stream 0)
-        for(int g=0 ; g < mNumberOfGrids ; g++ )
-          communicate_arrayCU( Up[g], g, 0 );
+//        for(int g=0 ; g < mNumberOfGrids ; g++ )
+//          communicate_arrayCU( Up[g], g, 0 );
 
         // Unpack halos from communication buffers (stream 0)
-        for(int g=0 ; g < mNumberOfGrids ; g++ )
-          unpack_HaloArrayCU (Up[g], g, 0);
+//        for(int g=0 ; g < mNumberOfGrids ; g++ )
+//          unpack_HaloArrayCU (Up[g], g, 0);
 
         // Wait for stream1 work to complete
         m_cuobj->sync_stream(1);
