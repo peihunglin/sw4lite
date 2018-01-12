@@ -2530,9 +2530,16 @@ void EW::timesteploop( vector<Sarray>& U, vector<Sarray>& Um )
         // RHS + predictor in the free surface and boundaries, stream 0
         RHSPredCU_upper_boundary (Up, U, Um, mMu, mLambda, mRho, F, 0);
 
+        // Wait for stream 0 to complete
+        m_cuobj->sync_stream(0);
 //        // Pack halos into communication buffers (stream 0)
 //        for(int g=0 ; g < mNumberOfGrids ; g++ )
 //          pack_HaloArrayCU (Up[g], g, 0);
+
+        // RHS + predictor in the rest (stream 1)
+        RHSPredCU_center (Up, U, Um, mMu, mLambda, mRho, F, 1);
+
+         time_measure[2] = MPI_Wtime();
         for(int g=0 ; g < mNumberOfGrids ; g++ )
         {
           pack_HaloArrayCU_X (Up[g], g, 0);
@@ -2542,13 +2549,6 @@ void EW::timesteploop( vector<Sarray>& U, vector<Sarray>& Um )
           communicate_arrayCU_Y( Up[g], g, 0);
           unpack_HaloArrayCU_Y (Up[g], g, 0);
         } 
-        // Wait for stream 0 to complete
-        m_cuobj->sync_stream(0);
-
-        // RHS + predictor in the rest (stream 1)
-        RHSPredCU_center (Up, U, Um, mMu, mLambda, mRho, F, 1);
-
-         time_measure[2] = MPI_Wtime();
         // communicate across processor boundaries (stream 0)
 //        for(int g=0 ; g < mNumberOfGrids ; g++ )
 //          communicate_arrayCU( Up[g], g, 0);
@@ -2603,22 +2603,12 @@ void EW::timesteploop( vector<Sarray>& U, vector<Sarray>& Um )
         // Add super grid damping terms in the free surface and halos (stream 0)
         addSuperGridDampingCU_upper_boundary (Up, U, Um, mRho, 0);
 
+        // Wait for stream 0 to complete
+        m_cuobj->sync_stream(0);
 
         // Pack halos into communication buffers (stream 0)
 //        for(int g=0 ; g < mNumberOfGrids ; g++ )
 //          pack_HaloArrayCU (Up[g], g, 0);
-        for(int g=0 ; g < mNumberOfGrids ; g++ )
-        {
-          pack_HaloArrayCU_X (Up[g], g, 0);
-          communicate_arrayCU_X( Up[g], g, 0 );
-          unpack_HaloArrayCU_X (Up[g], g, 0);
-          pack_HaloArrayCU_Y (Up[g], g, 0);
-          communicate_arrayCU_Y( Up[g], g, 0 );
-          unpack_HaloArrayCU_Y (Up[g], g, 0);
-        }
-
-        // Wait for stream 0 to complete
-        m_cuobj->sync_stream(0);
         
         // RHS + corrector in the rest of the cube (stream 1)
         RHSCorrCU_center (Up, Uacc, mMu, mLambda, mRho, F, 1);
@@ -2628,6 +2618,16 @@ void EW::timesteploop( vector<Sarray>& U, vector<Sarray>& Um )
          
         // Add super grid damping terms in the rest of the cube (stream 1)
         m_cuobj->sync_stream(1);
+
+        for(int g=0 ; g < mNumberOfGrids ; g++ )
+        {
+          pack_HaloArrayCU_X (Up[g], g, 0);
+          communicate_arrayCU_X( Up[g], g, 0 );
+          unpack_HaloArrayCU_X (Up[g], g, 0);
+          pack_HaloArrayCU_Y (Up[g], g, 0);
+          communicate_arrayCU_Y( Up[g], g, 0 );
+          unpack_HaloArrayCU_Y (Up[g], g, 0);
+        }
 
         // communicate across processor boundaries (stream 0)
 //        for(int g=0 ; g < mNumberOfGrids ; g++ )
