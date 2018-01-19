@@ -420,72 +420,6 @@ void EW::init_point_sourcesCU( )
 }
 
 
-//-----------------------------------------------------------------------
-void EW::enforceBCCU( vector<Sarray> & a_U, vector<Sarray>& a_Mu, vector<Sarray>& a_Lambda,
-                      float_sw4 t, vector<float_sw4**> & a_BCForcing, int st )
-{
-#ifdef SW4_CUDA
-  dim3 gridsize, blocksize;
-  gridsize.x  = m_gpu_gridsize[0];
-  gridsize.y  = m_gpu_gridsize[1];
-  gridsize.z  = m_gpu_gridsize[2];
-  blocksize.x = m_gpu_blocksize[0];
-  blocksize.y = m_gpu_blocksize[1];
-  blocksize.z = m_gpu_blocksize[2];
-
-  float_sw4 om=0, ph=0, cv=0;
-  for(int g=0 ; g<mNumberOfGrids; g++ )
-  {
-    if( m_corder )
-      bcfortsg_dev_indrev<<<gridsize, blocksize, 0, m_cuobj->m_stream[st]>>>( m_iStart[g], m_iEnd[g], m_jStart[g], m_jEnd[g], m_kStart[g], m_kEnd[g],
-                                                                              dev_BndryWindow[g], m_global_nx[g], m_global_ny[g], m_global_nz[g], a_U[g].dev_ptr(),
-                                                                              mGridSize[g], dev_bcType[g], a_Mu[g].dev_ptr(), a_Lambda[g].dev_ptr(),
-                                                                              t, dev_BCForcing[g][0], dev_BCForcing[g][1], dev_BCForcing[g][2],
-                                                                              dev_BCForcing[g][3], dev_BCForcing[g][4], dev_BCForcing[g][5],
-                                                                              om, ph, cv, dev_sg_str_x[g], dev_sg_str_y[g] );
-    else
-      bcfortsg_dev<<<gridsize, blocksize, 0, m_cuobj->m_stream[st]>>>( m_iStart[g], m_iEnd[g], m_jStart[g], m_jEnd[g], m_kStart[g], m_kEnd[g],
-                                                                       dev_BndryWindow[g], m_global_nx[g], m_global_ny[g], m_global_nz[g], a_U[g].dev_ptr(),
-                                                                       mGridSize[g], dev_bcType[g], a_Mu[g].dev_ptr(), a_Lambda[g].dev_ptr(),
-                                                                       t, dev_BCForcing[g][0], dev_BCForcing[g][1], dev_BCForcing[g][2],
-                                                                       dev_BCForcing[g][3], dev_BCForcing[g][4], dev_BCForcing[g][5],
-                                                                       om, ph, cv, dev_sg_str_x[g], dev_sg_str_y[g] );
-
-      if( m_topography_exists && g == mNumberOfGrids-1 && m_bcType[g][4] == bStressFree )
-      {
-	 int side = 5;
-         gridsize.z = 1;
-         blocksize.z = 1;
-	 if( m_corder )
-           freesurfcurvisg_dev_rev<<<gridsize, blocksize, 0, m_cuobj->m_stream[st]>>>( m_iStart[g], m_iEnd[g], m_jStart[g], m_jEnd[g], m_kStart[g], m_kEnd[g],
-                                                                               m_global_nz[g], side, a_U[g].dev_ptr(), a_Mu[g].dev_ptr(),
-                                                                               a_Lambda[g].dev_ptr(), mMetric.dev_ptr(),  
-                                                                              dev_BCForcing[g][4], dev_sg_str_x[g], dev_sg_str_y[g], m_ghost_points );
-	 else
-           freesurfcurvisg_dev<<<gridsize, blocksize, 0, m_cuobj->m_stream[st]>>>( m_iStart[g], m_iEnd[g], m_jStart[g], m_jEnd[g], m_kStart[g], m_kEnd[g],
-                                                                               m_global_nz[g], side, a_U[g].dev_ptr(), a_Mu[g].dev_ptr(),
-                                                                               a_Lambda[g].dev_ptr(), mMetric.dev_ptr(),  
-                                                                              dev_BCForcing[g][4], dev_sg_str_x[g], dev_sg_str_y[g], m_ghost_points );
-      }
-
-  }
-  if (m_topography_exists)
-  {
-    gridsize.z = 1;
-    blocksize.z = 1;
-    int g = mNumberOfCartesianGrids-1;
-    int gc = mNumberOfGrids-1; 
-    if( m_corder )
-      enforceCartTopo_dev_rev<<<gridsize, blocksize, 0, m_cuobj->m_stream[st]>>>(m_iStart[g], m_iEnd[g], m_jStart[g], m_jEnd[g], m_kStart[g], m_kEnd[g],
-                             m_iStart[gc], m_iEnd[gc], m_jStart[gc], m_jEnd[gc], m_kStart[gc], m_kEnd[gc],  
-                             a_U[g].dev_ptr(), a_U[gc].dev_ptr(), m_ghost_points);
-   else
-      enforceCartTopo_dev<<<gridsize, blocksize, 0, m_cuobj->m_stream[st]>>>(m_iStart[g], m_iEnd[g], m_jStart[g], m_jEnd[g], m_kStart[g], m_kEnd[g], 
-                          m_iStart[gc], m_iEnd[gc], m_jStart[gc], m_jEnd[gc], m_kStart[gc], m_kEnd[gc],  
-                          a_U[g].dev_ptr(), a_U[gc].dev_ptr(), m_ghost_points);
-  }
-#endif
-}
 
 
 //-----------------------------------------------------------------------
@@ -1660,6 +1594,22 @@ void EW::setup_device_communication_array()
 #endif
 }
 
+//-----------------------------------------------------------------------
+
+void EW::enforceBCCU( vector<Sarray> & a_U, vector<Sarray>& a_Mu, vector<Sarray>& a_Lambda,
+                      float_sw4 t, vector<float_sw4**> & a_BCForcing, int st )
+{
+#ifdef SW4_CUDA
+  float_sw4 om=0, ph=0, cv=0;
+  for(int g=0 ; g<mNumberOfGrids; g++ )
+    bcfortsg_gpu( m_iStart[g], m_iEnd[g], m_jStart[g], m_jEnd[g], m_kStart[g], m_kEnd[g],
+                  dev_BndryWindow[g], m_global_nx[g], m_global_ny[g], m_global_nz[g], a_U[g].dev_ptr(),
+                  mGridSize[g], dev_bcType[g], a_Mu[g].dev_ptr(), a_Lambda[g].dev_ptr(),
+                  t, dev_BCForcing[g][0], dev_BCForcing[g][1], dev_BCForcing[g][2],
+                  dev_BCForcing[g][3], dev_BCForcing[g][4], dev_BCForcing[g][5],
+                  om, ph, cv, dev_sg_str_x[g], dev_sg_str_y[g], m_corder, m_cuobj->m_stream[st]);
+#endif
+}
 
 #else  // not SW4_Guillaume
 //-----------------------------------------------------------------------
@@ -2279,6 +2229,73 @@ void EW::setup_device_communication_array()
 
      }
   }
+
+//-----------------------------------------------------------------------
+void EW::enforceBCCU( vector<Sarray> & a_U, vector<Sarray>& a_Mu, vector<Sarray>& a_Lambda,
+                      float_sw4 t, vector<float_sw4**> & a_BCForcing, int st )
+{
+#ifdef SW4_CUDA
+  dim3 gridsize, blocksize;
+  gridsize.x  = m_gpu_gridsize[0];
+  gridsize.y  = m_gpu_gridsize[1];
+  gridsize.z  = m_gpu_gridsize[2];
+  blocksize.x = m_gpu_blocksize[0];
+  blocksize.y = m_gpu_blocksize[1];
+  blocksize.z = m_gpu_blocksize[2];
+
+  float_sw4 om=0, ph=0, cv=0;
+  for(int g=0 ; g<mNumberOfGrids; g++ )
+  {
+    if( m_corder )
+      bcfortsg_dev_indrev<<<gridsize, blocksize, 0, m_cuobj->m_stream[st]>>>( m_iStart[g], m_iEnd[g], m_jStart[g], m_jEnd[g], m_kStart[g], m_kEnd[g],
+                                                                              dev_BndryWindow[g], m_global_nx[g], m_global_ny[g], m_global_nz[g], a_U[g].dev_ptr(),
+                                                                              mGridSize[g], dev_bcType[g], a_Mu[g].dev_ptr(), a_Lambda[g].dev_ptr(),
+                                                                              t, dev_BCForcing[g][0], dev_BCForcing[g][1], dev_BCForcing[g][2],
+                                                                              dev_BCForcing[g][3], dev_BCForcing[g][4], dev_BCForcing[g][5],
+                                                                              om, ph, cv, dev_sg_str_x[g], dev_sg_str_y[g] );
+    else
+      bcfortsg_dev<<<gridsize, blocksize, 0, m_cuobj->m_stream[st]>>>( m_iStart[g], m_iEnd[g], m_jStart[g], m_jEnd[g], m_kStart[g], m_kEnd[g],
+                                                                       dev_BndryWindow[g], m_global_nx[g], m_global_ny[g], m_global_nz[g], a_U[g].dev_ptr(),
+                                                                       mGridSize[g], dev_bcType[g], a_Mu[g].dev_ptr(), a_Lambda[g].dev_ptr(),
+                                                                       t, dev_BCForcing[g][0], dev_BCForcing[g][1], dev_BCForcing[g][2],
+                                                                       dev_BCForcing[g][3], dev_BCForcing[g][4], dev_BCForcing[g][5],
+                                                                       om, ph, cv, dev_sg_str_x[g], dev_sg_str_y[g] );
+
+      if( m_topography_exists && g == mNumberOfGrids-1 && m_bcType[g][4] == bStressFree )
+      {
+	 int side = 5;
+         gridsize.z = 1;
+         blocksize.z = 1;
+	 if( m_corder )
+           freesurfcurvisg_dev_rev<<<gridsize, blocksize, 0, m_cuobj->m_stream[st]>>>( m_iStart[g], m_iEnd[g], m_jStart[g], m_jEnd[g], m_kStart[g], m_kEnd[g],
+                                                                               m_global_nz[g], side, a_U[g].dev_ptr(), a_Mu[g].dev_ptr(),
+                                                                               a_Lambda[g].dev_ptr(), mMetric.dev_ptr(),  
+                                                                              dev_BCForcing[g][4], dev_sg_str_x[g], dev_sg_str_y[g], m_ghost_points );
+	 else
+           freesurfcurvisg_dev<<<gridsize, blocksize, 0, m_cuobj->m_stream[st]>>>( m_iStart[g], m_iEnd[g], m_jStart[g], m_jEnd[g], m_kStart[g], m_kEnd[g],
+                                                                               m_global_nz[g], side, a_U[g].dev_ptr(), a_Mu[g].dev_ptr(),
+                                                                               a_Lambda[g].dev_ptr(), mMetric.dev_ptr(),  
+                                                                              dev_BCForcing[g][4], dev_sg_str_x[g], dev_sg_str_y[g], m_ghost_points );
+      }
+
+  }
+  if (m_topography_exists)
+  {
+    gridsize.z = 1;
+    blocksize.z = 1;
+    int g = mNumberOfCartesianGrids-1;
+    int gc = mNumberOfGrids-1; 
+    if( m_corder )
+      enforceCartTopo_dev_rev<<<gridsize, blocksize, 0, m_cuobj->m_stream[st]>>>(m_iStart[g], m_iEnd[g], m_jStart[g], m_jEnd[g], m_kStart[g], m_kEnd[g],
+                             m_iStart[gc], m_iEnd[gc], m_jStart[gc], m_jEnd[gc], m_kStart[gc], m_kEnd[gc],  
+                             a_U[g].dev_ptr(), a_U[gc].dev_ptr(), m_ghost_points);
+   else
+      enforceCartTopo_dev<<<gridsize, blocksize, 0, m_cuobj->m_stream[st]>>>(m_iStart[g], m_iEnd[g], m_jStart[g], m_jEnd[g], m_kStart[g], m_kEnd[g], 
+                          m_iStart[gc], m_iEnd[gc], m_jStart[gc], m_jEnd[gc], m_kStart[gc], m_kEnd[gc],  
+                          a_U[g].dev_ptr(), a_U[gc].dev_ptr(), m_ghost_points);
+  }
+#endif
+}
 #endif
 }
 
