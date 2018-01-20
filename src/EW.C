@@ -2530,14 +2530,13 @@ void EW::timesteploop( vector<Sarray>& U, vector<Sarray>& Um )
 
       if( m_cuobj->has_gpu() )
       {
+#ifdef SW4_CUDA
 // all types of forcing...
 	 ForceCU( t, dev_F, false, 0 );
          if( m_checkfornan )
          {
-#ifdef SW4_CUDA
     	    check_for_nan_GPU( F, 1, "F" );
 	    check_for_nan_GPU( U, 1, "U" );
-#endif
          }
          time_measure[1] = MPI_Wtime();
 
@@ -2578,10 +2577,8 @@ void EW::timesteploop( vector<Sarray>& U, vector<Sarray>& Um )
         cudaDeviceSynchronize();
 #else
 	 evalRHSCU( U, mMu, mLambda, Lu, 0 ); // save Lu in composite grid 'Lu'
-#ifdef SW4_CUDA
          if( m_checkfornan )
 	    check_for_nan_GPU( Lu, 1, "Lu pred. " );
-#endif
          m_cuobj->sync_stream( 0 );
 	 evalPredictorCU( Up, U, Um, mRho, Lu, F, 1 );    
          m_cuobj->sync_stream(1);
@@ -2693,6 +2690,7 @@ void EW::timesteploop( vector<Sarray>& U, vector<Sarray>& Um )
 
 	 //         for( int g=0; g < mNumberOfGrids ; g++ )
 	 //	    Up[g].copy_from_device(m_cuobj,true,0);
+#endif
       }
       else  // CPU version code
       {
@@ -2780,7 +2778,9 @@ void EW::timesteploop( vector<Sarray>& U, vector<Sarray>& Um )
 	       U[g].copy_from_device(m_cuobj,true,0);
 	       Up[g].copy_from_device(m_cuobj,true,1);
 	    }
+#ifdef SW4_CUDA
 	    cudaDeviceSynchronize();
+#endif
 	    m_check_points[c]->write_checkpoint( t, currentTimeStep, U, Up );
 	    wrote=true;
 	 }
