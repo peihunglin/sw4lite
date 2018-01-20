@@ -2341,7 +2341,9 @@ void EW::timesteploop( vector<Sarray>& U, vector<Sarray>& Um )
 
    // local arrays: F, Up, Lu, Uacc
    vector<Sarray> F, Lu, Uacc, Up;
-   Sarray* dev_F;
+   // Pointer to Sarray on device, not sure if std::vector is available.
+   Sarray* dev_F, *dev_Um, *dev_U, *dev_Up, *dev_metric, *dev_j;
+   float_sw4* gridsize_dev;   
 
    // Do all timing in double, time differences have to much cancellation for float.
    double time_start_solve = MPI_Wtime();
@@ -2444,10 +2446,14 @@ void EW::timesteploop( vector<Sarray>& U, vector<Sarray>& Um )
 #endif
 #ifdef SW4_CUDA
    cudaError_t retval = cudaMalloc( (void**)&dev_F, sizeof(Sarray)*mNumberOfGrids);
+   retval = cudaMalloc( (void**)&dev_Um, sizeof(Sarray)*mNumberOfGrids);
+   retval = cudaMalloc( (void**)&dev_U,  sizeof(Sarray)*mNumberOfGrids);
+   retval = cudaMalloc( (void**)&dev_Up, sizeof(Sarray)*mNumberOfGrids);
+   retval = cudaMalloc( (void**)&dev_metric, sizeof(Sarray));
+   retval = cudaMalloc( (void**)&dev_j, sizeof(Sarray));
+   retval = cudaMalloc( (void**)&gridsize_dev, sizeof(float_sw4)*mNumberOfGrids);
    for( int g=0 ; g < mNumberOfGrids ; g++ )
    {
-      //      Lu[g].allocate_on_device(m_cuobj);
-      //      Up[g].allocate_on_device(m_cuobj);
       Lu[g].copy_to_device(m_cuobj);
       Up[g].copy_to_device(m_cuobj);
       Um[g].copy_to_device(m_cuobj);
@@ -2458,14 +2464,17 @@ void EW::timesteploop( vector<Sarray>& U, vector<Sarray>& Um )
       U[g].page_lock(m_cuobj);
       Um[g].page_lock(m_cuobj);
       Up[g].page_lock(m_cuobj);
-      //      Sarray* har = F[g].create_copy_on_device(m_cuobj);
    }
    retval = cudaMemcpy( dev_F, &F[0], mNumberOfGrids*sizeof(Sarray), cudaMemcpyHostToDevice );
-   //   retval = cudaMemcpy( &dev_F[g], har, sizeof(Sarray), cudaMemcpyHostToDevice );
-      if( retval != cudaSuccess )
-	 cout << "Error in memcpy to dev_F in timestep loop retval = " <<
-	    cudaGetErrorString(retval) << endl;
-      //}
+   retval = cudaMemcpy( dev_Um, &Um[0], mNumberOfGrids*sizeof(Sarray), cudaMemcpyHostToDevice );
+   retval = cudaMemcpy( dev_U,  &U[0],  mNumberOfGrids*sizeof(Sarray), cudaMemcpyHostToDevice );
+   retval = cudaMemcpy( dev_Up, &Up[0], mNumberOfGrids*sizeof(Sarray), cudaMemcpyHostToDevice );
+   retval = cudaMemcpy( dev_metric, &mMetric, sizeof(Sarray), cudaMemcpyHostToDevice );
+   retval = cudaMemcpy( dev_j, &mJ, sizeof(Sarray), cudaMemcpyHostToDevice );
+   retval = cudaMemcpy( gridsize_dev,  &mGridSize[0], sizeof(float_sw4)*mNumberOfGrids, cudaMemcpyHostToDevice );  
+   if( retval != cudaSuccess )
+      cout << "Error in memcpy to dev_F in timestep loop retval = " <<
+	 cudaGetErrorString(retval) << endl;
 #endif
 
 // save initial data on receiver records
@@ -2487,6 +2496,14 @@ void EW::timesteploop( vector<Sarray>& U, vector<Sarray>& Um )
     }
   }
 
+// Build TimeSeries help data structure for GPU
+  int* i0dev, *j0dev, *k0dev, *g0dev;
+  int* modedev;
+  float_sw4** urec_dev;  // array of pointers on device pointing to device memory
+  float_sw4** urec_host; // array of pointers on host pointing to host memory
+  float_sw4** urec_hdev; // array of pointers on host pointing to device memory
+  int nvals=0, ntloc=0;
+  allocateTimeSeriesOnDeviceCU( nvals, ntloc, i0dev, j0dev, k0dev, g0dev, modedev, urec_dev, urec_host, urec_hdev );
    if( m_myrank == 0 )
       cout << "starting at time " << t << " at cycle " << beginCycle << endl;
 
@@ -2572,8 +2589,8 @@ void EW::timesteploop( vector<Sarray>& U, vector<Sarray>& Um )
          time_measure[2] = MPI_Wtime();
 
 // communicate across processor boundaries
-         for(int g=0 ; g < mNumberOfGrids ; g++ )
-	    communicate_arrayCU( Up[g], g, 0);
+//         for(int g=0 ; g < mNumberOfGrids ; g++ )
+//	    communicate_arrayCU( Up[g], g, 0);
 #endif
          time_measure[3] = MPI_Wtime();
 
@@ -2581,6 +2598,7 @@ void EW::timesteploop( vector<Sarray>& U, vector<Sarray>& Um )
          cartesian_bc_forcingCU( t+mDt, BCForcing, m_globalUniqueSources,0);
          enforceBCCU( Up, mMu, mLambda, t+mDt, BCForcing, 0);
          cudaDeviceSynchronize();
+
          if( m_checkfornan )
 	    check_for_nan( Up, 1, "U pred. " );
          time_measure[4] = MPI_Wtime();
@@ -2590,13 +2608,10 @@ void EW::timesteploop( vector<Sarray>& U, vector<Sarray>& Um )
          time_measure[5] = MPI_Wtime();
 
 	 evalDpDmInTimeCU( Up, U, Um, Uacc, 0 ); // store result in Uacc
-#ifdef SW4_CUDA
-	 check_for_nan_GPU( Uacc, 1, "uacc " );
-#endif
-
+	 if( m_cuobj->has_gpu() && m_checkfornan )
+	    check_for_nan_GPU( Uacc, 1, "uacc " );
 
 #if SW4_Guillaume
-
         // RHS + corrector in the free surface and halos (stream 0)
         RHSCorrCU_upper_boundary (Up, Uacc, mMu, mLambda, mRho, F, 0);
 
@@ -2643,8 +2658,8 @@ void EW::timesteploop( vector<Sarray>& U, vector<Sarray>& Um )
         time_measure[6] = MPI_Wtime();
 
         // Extract the GPU data
-        for( int g=0; g < mNumberOfGrids ; g++ )
-          Up[g].copy_from_device(m_cuobj,true,0);
+	//        for( int g=0; g < mNumberOfGrids ; g++ )
+	//          Up[g].copy_from_device(m_cuobj,true,0);
 
         time_measure[7] = MPI_Wtime();
 
@@ -2652,9 +2667,9 @@ void EW::timesteploop( vector<Sarray>& U, vector<Sarray>& Um )
         m_cuobj->sync_stream(0);
 #else
 	 evalRHSCU( Uacc, mMu, mLambda, Lu, 0 );
-#ifdef SW4_CUDA
-	 check_for_nan_GPU( Lu, 1, "L(uacc) " );
-#endif
+	 if( m_cuobj->has_gpu() && m_checkfornan )
+	    check_for_nan_GPU( Lu, 1, "L(uacc) " );
+
          m_cuobj->sync_stream(0);
 	 evalCorrectorCU( Up, mRho, Lu, F, 1 );
          time_measure[6] = MPI_Wtime();
@@ -2666,17 +2681,18 @@ void EW::timesteploop( vector<Sarray>& U, vector<Sarray>& Um )
          time_measure[7] = MPI_Wtime();
 
 // communicate across processor boundaries
-         for(int g=0 ; g < mNumberOfGrids ; g++ )
-	    communicate_arrayCU( Up[g], g, 0 );
+//         for(int g=0 ; g < mNumberOfGrids ; g++ )
+//	    communicate_arrayCU( Up[g], g, 0 );
 #endif
          time_measure[8] = MPI_Wtime();
 
          cartesian_bc_forcingCU( t+mDt, BCForcing, m_globalUniqueSources, 0 );
          enforceBCCU( Up, mMu, mLambda, t+mDt, BCForcing, 0 );
-	 check_for_nan( Up, 1, "Up" );
+	 if( m_checkfornan )
+	    check_for_nan( Up, 1, "Up" );
 
-         for( int g=0; g < mNumberOfGrids ; g++ )
-	    Up[g].copy_from_device(m_cuobj,true,0);
+	 //         for( int g=0; g < mNumberOfGrids ; g++ )
+	 //	    Up[g].copy_from_device(m_cuobj,true,0);
       }
       else  // CPU version code
       {
@@ -2713,10 +2729,12 @@ void EW::timesteploop( vector<Sarray>& U, vector<Sarray>& Um )
          time_measure[5] = MPI_Wtime();
 
 	 evalDpDmInTime( Up, U, Um, Uacc ); // store result in Uacc
-	 check_for_nan( Uacc, 1, "uacc " );
+	 if( m_checkfornan )
+	    check_for_nan( Uacc, 1, "uacc " );
 
        	 evalRHS( Uacc, mMu, mLambda, Lu );
-	 check_for_nan( Lu, 1, "L(uacc) " );
+	 if( m_checkfornan )
+	    check_for_nan( Lu, 1, "L(uacc) " );
 
 	 evalCorrector( Up, mRho, Lu, F );
          time_measure[6] = MPI_Wtime();
@@ -2733,7 +2751,8 @@ void EW::timesteploop( vector<Sarray>& U, vector<Sarray>& Um )
 
          cartesian_bc_forcing( t+mDt, BCForcing, m_globalUniqueSources );
          enforceBC( Up, mMu, mLambda, t+mDt, BCForcing );
-	 check_for_nan( Up, 1, "Up" );
+	 if( m_checkfornan )
+	    check_for_nan( Up, 1, "Up" );
       }
 
 
@@ -2756,30 +2775,57 @@ void EW::timesteploop( vector<Sarray>& U, vector<Sarray>& Um )
       for( int c=0 ; c < m_check_points.size() ; c++ )
 	 if( m_check_points[c]->timeToWrite( t, currentTimeStep, mDt) )
 	 {
+	    for( int g=0 ; g < mNumberOfGrids ; g++ )
+	    {
+	       U[g].copy_from_device(m_cuobj,true,0);
+	       Up[g].copy_from_device(m_cuobj,true,1);
+	    }
+	    cudaDeviceSynchronize();
 	    m_check_points[c]->write_checkpoint( t, currentTimeStep, U, Up );
 	    wrote=true;
 	 }
-      time_chkpt_tmp =MPI_Wtime()-time_chkpt;
-      MPI_Allreduce( &time_chkpt_tmp, &time_chkpt, 1, MPI_DOUBLE, MPI_MAX, MPI_COMM_WORLD );
-      if( m_myrank == 0 && wrote )
+      if( wrote )
+      {
+	 time_chkpt_tmp =MPI_Wtime()-time_chkpt;
+	 MPI_Allreduce( &time_chkpt_tmp, &time_chkpt, 1, MPI_DOUBLE, MPI_MAX, MPI_COMM_WORLD );
+	 if( m_myrank == 0 )
 	 cout << "Cpu time to write check point file " << time_chkpt << " seconds " << endl;
+      }
 //
 // save the current solution on receiver records (time-derivative require Up and Um for a 2nd order
 // approximation, so do this before cycling the arrays)
-      for (int ts=0; ts<m_GlobalTimeSeries.size(); ts++)
+      if( m_cuobj->has_gpu() )
       {
-	 if (m_GlobalTimeSeries[ts]->myPoint())
+	 if( ntloc > 0 )
 	 {
-	    int i0 = m_GlobalTimeSeries[ts]->m_i0;
-	    int j0 = m_GlobalTimeSeries[ts]->m_j0;
-	    int k0 = m_GlobalTimeSeries[ts]->m_k0;
-	    int grid0 = m_GlobalTimeSeries[ts]->m_grid0;
+
+	    extractRecordDataCU( ntloc, modedev, i0dev, j0dev, k0dev, g0dev, urec_dev, dev_Um, dev_Up,
+				 mDt, gridsize_dev, dev_metric, dev_j, 0, nvals, urec_host[0], urec_hdev[0] );
+
+   // Note: extractRecordDataCU performs cudaMemcpy of dev data to host, no explicit synchronization needed.
+	    int tsnr=0;
+	    for( int ts=0 ; ts < m_GlobalTimeSeries.size() ; ts++ )
+	       if( m_GlobalTimeSeries[ts]->myPoint() )
+		  m_GlobalTimeSeries[ts]->recordData(urec_host[tsnr++]);
+	 }
+      }
+      else
+      {
+	 for (int ts=0; ts<m_GlobalTimeSeries.size(); ts++)
+	 {
+	    if (m_GlobalTimeSeries[ts]->myPoint())
+	    {
+	       int i0 = m_GlobalTimeSeries[ts]->m_i0;
+	       int j0 = m_GlobalTimeSeries[ts]->m_j0;
+	       int k0 = m_GlobalTimeSeries[ts]->m_k0;
+	       int grid0 = m_GlobalTimeSeries[ts]->m_grid0;
 //
 // note that the solution on the new time step is in Up
 // also note that all quantities related to velocities lag by one time step; they are not
 // saved before the time stepping loop started
-	    extractRecordData(m_GlobalTimeSeries[ts]->getMode(), i0, j0, k0, grid0, uRec, Um, Up);
-	    m_GlobalTimeSeries[ts]->recordData(uRec);
+	       extractRecordData(m_GlobalTimeSeries[ts]->getMode(), i0, j0, k0, grid0, uRec, Um, Up);
+	       m_GlobalTimeSeries[ts]->recordData(uRec);
+	    }
 	 }
       }
 
@@ -2788,7 +2834,7 @@ void EW::timesteploop( vector<Sarray>& U, vector<Sarray>& Um )
 //	 compute_energy( mDt, currentTimeStep == mNumberOfTimeSteps, Um, U, Up, currentTimeStep  );
 
 // cycle the solution arrays
-      cycleSolutionArrays(Um, U, Up);
+      cycleSolutionArrays(Um, U, Up, dev_Um, dev_U, dev_Up );
 
       //      time_measure[8] = MPI_Wtime();	  
       time_measure[10] = MPI_Wtime();	  
@@ -3003,7 +3049,8 @@ bool EW::check_for_nan( vector<Sarray>& a_U, int verbose, string name )
 
 //-----------------------------------------------------------------------
 void EW::cycleSolutionArrays(vector<Sarray> & a_Um, vector<Sarray> & a_U,
-			     vector<Sarray> & a_Up ) 
+			     vector<Sarray> & a_Up, Sarray*& dev_Um,
+			     Sarray*& dev_U, Sarray*& dev_Up ) 
 {
    for (int g=0; g<mNumberOfGrids; g++)
    {
@@ -3019,6 +3066,10 @@ void EW::cycleSolutionArrays(vector<Sarray> & a_Um, vector<Sarray> & a_U,
 	 a_Up[g].reference_dev(tmp );
       }
    }
+   Sarray* tmp = dev_Um;
+   dev_Um = dev_U;
+   dev_U  = dev_Up;
+   dev_Up = tmp;
 }
 
 //-----------------------------------------------------------------------

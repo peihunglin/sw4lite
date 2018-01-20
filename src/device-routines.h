@@ -379,4 +379,9 @@ __global__ void HaloToBufferKernel_dev_rev_v2(float_sw4* block_left, float_sw4* 
                         int ni, int nj, int nk, int m_padding, int size, int nstep, const int m_neighbor_left ,const int  m_neighbor_right, const int mpi_process_null);
 
 #endif
+__global__ void extractRecordData_dev( int nt, int* mode, int* i0v, int* j0v, int* k0v,
+				       int* g0v, float_sw4** urec, Sarray* Um2, Sarray* U,
+				       float_sw4 dt, float_sw4* h, int numberOfCartesianGrids, 
+				       Sarray* mMetric, Sarray* mJ );
+
 #endif

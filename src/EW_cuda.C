@@ -420,10 +420,7 @@ void EW::init_point_sourcesCU( )
 }
 
 
-
-
 //-----------------------------------------------------------------------
-
 void EW::cartesian_bc_forcingCU( float_sw4 t, vector<float_sw4**> & a_BCForcing,
                                  vector<Source*>& a_sources , int st)
 // assign the boundary forcing arrays dev_BCForcing[g][side]
@@ -1595,7 +1592,6 @@ void EW::setup_device_communication_array()
 }
 
 //-----------------------------------------------------------------------
-
 void EW::enforceBCCU( vector<Sarray> & a_U, vector<Sarray>& a_Mu, vector<Sarray>& a_Lambda,
                       float_sw4 t, vector<float_sw4**> & a_BCForcing, int st )
 {
@@ -1612,8 +1608,75 @@ void EW::enforceBCCU( vector<Sarray> & a_U, vector<Sarray>& a_Mu, vector<Sarray>
 }
 
 #else  // not SW4_Guillaume
-//-----------------------------------------------------------------------
 
+//-----------------------------------------------------------------------
+void EW::enforceBCCU( vector<Sarray> & a_U, vector<Sarray>& a_Mu, vector<Sarray>& a_Lambda,
+                      float_sw4 t, vector<float_sw4**> & a_BCForcing, int st )
+{
+#ifdef SW4_CUDA
+  dim3 gridsize, blocksize;
+  gridsize.x  = m_gpu_gridsize[0];
+  gridsize.y  = m_gpu_gridsize[1];
+  gridsize.z  = m_gpu_gridsize[2];
+  blocksize.x = m_gpu_blocksize[0];
+  blocksize.y = m_gpu_blocksize[1];
+  blocksize.z = m_gpu_blocksize[2];
+
+  float_sw4 om=0, ph=0, cv=0;
+  for(int g=0 ; g<mNumberOfGrids; g++ )
+  {
+    if( m_corder )
+      bcfortsg_dev_indrev<<<gridsize, blocksize, 0, m_cuobj->m_stream[st]>>>( m_iStart[g], m_iEnd[g], m_jStart[g], m_jEnd[g], m_kStart[g], m_kEnd[g],
+                                                                              dev_BndryWindow[g], m_global_nx[g], m_global_ny[g], m_global_nz[g], a_U[g].dev_ptr(),
+                                                                              mGridSize[g], dev_bcType[g], a_Mu[g].dev_ptr(), a_Lambda[g].dev_ptr(),
+                                                                              t, dev_BCForcing[g][0], dev_BCForcing[g][1], dev_BCForcing[g][2],
+                                                                              dev_BCForcing[g][3], dev_BCForcing[g][4], dev_BCForcing[g][5],
+                                                                              om, ph, cv, dev_sg_str_x[g], dev_sg_str_y[g] );
+    else
+      bcfortsg_dev<<<gridsize, blocksize, 0, m_cuobj->m_stream[st]>>>( m_iStart[g], m_iEnd[g], m_jStart[g], m_jEnd[g], m_kStart[g], m_kEnd[g],
+                                                                       dev_BndryWindow[g], m_global_nx[g], m_global_ny[g], m_global_nz[g], a_U[g].dev_ptr(),
+                                                                       mGridSize[g], dev_bcType[g], a_Mu[g].dev_ptr(), a_Lambda[g].dev_ptr(),
+                                                                       t, dev_BCForcing[g][0], dev_BCForcing[g][1], dev_BCForcing[g][2],
+                                                                       dev_BCForcing[g][3], dev_BCForcing[g][4], dev_BCForcing[g][5],
+                                                                       om, ph, cv, dev_sg_str_x[g], dev_sg_str_y[g] );
+
+      if( m_topography_exists && g == mNumberOfGrids-1 && m_bcType[g][4] == bStressFree )
+      {
+	 int side = 5;
+         gridsize.z = 1;
+         blocksize.z = 1;
+	 if( m_corder )
+           freesurfcurvisg_dev_rev<<<gridsize, blocksize, 0, m_cuobj->m_stream[st]>>>( m_iStart[g], m_iEnd[g], m_jStart[g], m_jEnd[g], m_kStart[g], m_kEnd[g],
+                                                                               m_global_nz[g], side, a_U[g].dev_ptr(), a_Mu[g].dev_ptr(),
+                                                                               a_Lambda[g].dev_ptr(), mMetric.dev_ptr(),  
+                                                                              dev_BCForcing[g][4], dev_sg_str_x[g], dev_sg_str_y[g], m_ghost_points );
+	 else
+           freesurfcurvisg_dev<<<gridsize, blocksize, 0, m_cuobj->m_stream[st]>>>( m_iStart[g], m_iEnd[g], m_jStart[g], m_jEnd[g], m_kStart[g], m_kEnd[g],
+                                                                               m_global_nz[g], side, a_U[g].dev_ptr(), a_Mu[g].dev_ptr(),
+                                                                               a_Lambda[g].dev_ptr(), mMetric.dev_ptr(),  
+                                                                              dev_BCForcing[g][4], dev_sg_str_x[g], dev_sg_str_y[g], m_ghost_points );
+      }
+
+  }
+  if (m_topography_exists)
+  {
+    gridsize.z = 1;
+    blocksize.z = 1;
+    int g = mNumberOfCartesianGrids-1;
+    int gc = mNumberOfGrids-1; 
+    if( m_corder )
+      enforceCartTopo_dev_rev<<<gridsize, blocksize, 0, m_cuobj->m_stream[st]>>>(m_iStart[g], m_iEnd[g], m_jStart[g], m_jEnd[g], m_kStart[g], m_kEnd[g],
+                             m_iStart[gc], m_iEnd[gc], m_jStart[gc], m_jEnd[gc], m_kStart[gc], m_kEnd[gc],  
+                             a_U[g].dev_ptr(), a_U[gc].dev_ptr(), m_ghost_points);
+   else
+      enforceCartTopo_dev<<<gridsize, blocksize, 0, m_cuobj->m_stream[st]>>>(m_iStart[g], m_iEnd[g], m_jStart[g], m_jEnd[g], m_kStart[g], m_kEnd[g], 
+                          m_iStart[gc], m_iEnd[gc], m_jStart[gc], m_jEnd[gc], m_kStart[gc], m_kEnd[gc],  
+                          a_U[g].dev_ptr(), a_U[gc].dev_ptr(), m_ghost_points);
+  }
+#endif
+}
+
+//-----------------------------------------------------------------------
 void EW::communicate_arrayCU( Sarray& u, int g , int st)
 {
 #ifdef SW4_CUDA
@@ -2140,7 +2203,6 @@ void EW::addSuperGridDampingCU(vector<Sarray> & a_Up, vector<Sarray> & a_U,
 #endif
 }
 //-----------------------------------------------------------------------
-
 void EW::setup_device_communication_array()
 {
 #ifdef SW4_CUDA
@@ -2229,75 +2291,127 @@ void EW::setup_device_communication_array()
 
      }
   }
+#endif
+}
+
+#endif // terminate #ifdef SW4_Guillaume... #else ...
+//-----------------------------------------------------------------------
+void EW::allocateTimeSeriesOnDeviceCU( int& nvals, int& ntloc, int*& i0dev,
+				       int*& j0dev, int*& k0dev, int*& g0dev,
+				       int*& modedev, float_sw4**& urec_dev,
+				       float_sw4**& urec_host, float_sw4**& urec_hdev )
+{
+   // urec_dev:  array of pointers on device pointing to device memory
+   // urec_host: array of pointers on host pointing to host memory
+   // urec_hdev: array of pointers on host pointing to device memory
+#ifdef SW4_CUDA
+  vector<int> i0vect, j0vect, k0vect, g0vect;
+  vector<int> modevect;
+  // Save location and type of stations, and count their number (ntloc), 
+  // and the total size of memory needed (nvals)
+  for (int ts=0; ts<m_GlobalTimeSeries.size(); ts++)
+  {
+     if ( m_GlobalTimeSeries[ts]->myPoint())
+     {
+	i0vect.push_back(m_GlobalTimeSeries[ts]->m_i0);
+	j0vect.push_back(m_GlobalTimeSeries[ts]->m_j0);
+	k0vect.push_back(m_GlobalTimeSeries[ts]->m_k0);
+	g0vect.push_back(m_GlobalTimeSeries[ts]->m_grid0);
+	modevect.push_back(m_GlobalTimeSeries[ts]->getMode());
+	nvals += m_GlobalTimeSeries[ts]->urec_size();
+     }
+  }
+  ntloc=i0vect.size();
+
+  // Allocate memory on host
+  urec_host = new float_sw4*[ntloc];
+  urec_hdev = new float_sw4*[ntloc]; 
+  cudaError_t  retval;
+  if( ntloc > 0 )
+  {
+  // Allocate memory on device, and copy the location to vectors on device 
+     retval = cudaMalloc( (void**)&i0dev, sizeof(int)*ntloc);
+     if( retval != cudaSuccess )
+	cout << "Error in cudaMalloc of i0dev retval = " <<cudaGetErrorString(retval) << endl;
+     retval = cudaMalloc( (void**)&j0dev, sizeof(int)*ntloc);
+     if( retval != cudaSuccess )
+	cout << "Error in cudaMalloc of j0dev retval = " <<cudaGetErrorString(retval) << endl;
+     retval = cudaMalloc( (void**)&k0dev, sizeof(int)*ntloc);
+     if( retval != cudaSuccess )
+	cout << "Error in cudaMalloc of k0dev retval = " <<cudaGetErrorString(retval) << endl;
+     retval = cudaMalloc( (void**)&g0dev, sizeof(int)*ntloc);
+     if( retval != cudaSuccess )
+	cout << "Error in cudaMalloc of g0dev retval = " <<cudaGetErrorString(retval) << endl;
+     retval = cudaMalloc( (void**)&modedev, sizeof(int)*ntloc);
+     if( retval != cudaSuccess )
+	cout << "Error in cudaMalloc of modedev retval = " <<cudaGetErrorString(retval) << endl;
+     retval = cudaMemcpy( i0dev,  &i0vect[0], sizeof(int)*ntloc, cudaMemcpyHostToDevice );
+     if( retval != cudaSuccess )
+	cout << "Error in cudaMmemcpy of i0dev retval = " <<cudaGetErrorString(retval) << endl;
+     retval = cudaMemcpy( j0dev,  &j0vect[0], sizeof(int)*ntloc, cudaMemcpyHostToDevice );
+     if( retval != cudaSuccess )
+	cout << "Error in cudaMmemcpy of j0dev retval = " <<cudaGetErrorString(retval) << endl;
+     retval = cudaMemcpy( k0dev,  &k0vect[0], sizeof(int)*ntloc, cudaMemcpyHostToDevice );
+     if( retval != cudaSuccess )
+	cout << "Error in cudaMmemcpy of k0dev retval = " <<cudaGetErrorString(retval) << endl;
+     retval = cudaMemcpy( g0dev,  &g0vect[0], sizeof(int)*ntloc, cudaMemcpyHostToDevice );
+     if( retval != cudaSuccess )
+	cout << "Error in cudaMmemcpy of g0dev retval = " <<cudaGetErrorString(retval) << endl;
+     retval = cudaMemcpy( modedev,  &modevect[0], sizeof(int)*ntloc, cudaMemcpyHostToDevice );
+     if( retval != cudaSuccess )
+	cout << "Error in cudaMmemcpy of modedev retval = " <<cudaGetErrorString(retval) << endl;
+
+    // Allocate memory on host and and device to hold the data 
+     float_sw4* devmem;
+     retval = cudaMalloc( (void**)&devmem, sizeof(float_sw4)*nvals);
+     float_sw4* hostmem = new float_sw4[nvals];
+
+     size_t ptr=0;
+     int tsnr=0;
+     for( int ts=0; ts<m_GlobalTimeSeries.size(); ts++)
+     {
+	if ( m_GlobalTimeSeries[ts]->myPoint() )
+	{
+	   urec_hdev[tsnr] = &devmem[ptr];
+	   urec_host[tsnr] = &hostmem[ptr];
+	   ptr += m_GlobalTimeSeries[ts]->urec_size();
+	   tsnr++;
+	}
+     }
+    // Create and allocate pointer to pointers on device
+     retval = cudaMalloc( (void**)&urec_dev, sizeof(float_sw4*)*ntloc);
+     if( retval != cudaSuccess )
+	cout << "Error in cudaMalloc of urec_dev retval = " <<cudaGetErrorString(retval) << endl;
+     retval = cudaMemcpy( urec_dev, urec_hdev, sizeof(float_sw4*)*ntloc, cudaMemcpyHostToDevice);
+     if( retval != cudaSuccess )
+	cout << "Error in cudaMmemcpy of urec_dev retval = " <<cudaGetErrorString(retval) << endl;
+  }
+#endif
+}
 
 //-----------------------------------------------------------------------
-void EW::enforceBCCU( vector<Sarray> & a_U, vector<Sarray>& a_Mu, vector<Sarray>& a_Lambda,
-                      float_sw4 t, vector<float_sw4**> & a_BCForcing, int st )
+void EW::extractRecordDataCU( int nt, int* mode, int* i0v, int* j0v, int* k0v,
+			      int* g0v, float_sw4** urec_dev, Sarray* dev_Um, Sarray* dev_U,
+			      float_sw4 dt, float_sw4* h_dev, Sarray* dev_metric,
+			      Sarray* dev_j, int st, int nvals, float_sw4* urec_hostmem,
+			      float_sw4* urec_devmem )
 {
 #ifdef SW4_CUDA
-  dim3 gridsize, blocksize;
-  gridsize.x  = m_gpu_gridsize[0];
-  gridsize.y  = m_gpu_gridsize[1];
-  gridsize.z  = m_gpu_gridsize[2];
-  blocksize.x = m_gpu_blocksize[0];
-  blocksize.y = m_gpu_blocksize[1];
-  blocksize.z = m_gpu_blocksize[2];
-
-  float_sw4 om=0, ph=0, cv=0;
-  for(int g=0 ; g<mNumberOfGrids; g++ )
-  {
-    if( m_corder )
-      bcfortsg_dev_indrev<<<gridsize, blocksize, 0, m_cuobj->m_stream[st]>>>( m_iStart[g], m_iEnd[g], m_jStart[g], m_jEnd[g], m_kStart[g], m_kEnd[g],
-                                                                              dev_BndryWindow[g], m_global_nx[g], m_global_ny[g], m_global_nz[g], a_U[g].dev_ptr(),
-                                                                              mGridSize[g], dev_bcType[g], a_Mu[g].dev_ptr(), a_Lambda[g].dev_ptr(),
-                                                                              t, dev_BCForcing[g][0], dev_BCForcing[g][1], dev_BCForcing[g][2],
-                                                                              dev_BCForcing[g][3], dev_BCForcing[g][4], dev_BCForcing[g][5],
-                                                                              om, ph, cv, dev_sg_str_x[g], dev_sg_str_y[g] );
-    else
-      bcfortsg_dev<<<gridsize, blocksize, 0, m_cuobj->m_stream[st]>>>( m_iStart[g], m_iEnd[g], m_jStart[g], m_jEnd[g], m_kStart[g], m_kEnd[g],
-                                                                       dev_BndryWindow[g], m_global_nx[g], m_global_ny[g], m_global_nz[g], a_U[g].dev_ptr(),
-                                                                       mGridSize[g], dev_bcType[g], a_Mu[g].dev_ptr(), a_Lambda[g].dev_ptr(),
-                                                                       t, dev_BCForcing[g][0], dev_BCForcing[g][1], dev_BCForcing[g][2],
-                                                                       dev_BCForcing[g][3], dev_BCForcing[g][4], dev_BCForcing[g][5],
-                                                                       om, ph, cv, dev_sg_str_x[g], dev_sg_str_y[g] );
-
-      if( m_topography_exists && g == mNumberOfGrids-1 && m_bcType[g][4] == bStressFree )
-      {
-	 int side = 5;
-         gridsize.z = 1;
-         blocksize.z = 1;
-	 if( m_corder )
-           freesurfcurvisg_dev_rev<<<gridsize, blocksize, 0, m_cuobj->m_stream[st]>>>( m_iStart[g], m_iEnd[g], m_jStart[g], m_jEnd[g], m_kStart[g], m_kEnd[g],
-                                                                               m_global_nz[g], side, a_U[g].dev_ptr(), a_Mu[g].dev_ptr(),
-                                                                               a_Lambda[g].dev_ptr(), mMetric.dev_ptr(),  
-                                                                              dev_BCForcing[g][4], dev_sg_str_x[g], dev_sg_str_y[g], m_ghost_points );
-	 else
-           freesurfcurvisg_dev<<<gridsize, blocksize, 0, m_cuobj->m_stream[st]>>>( m_iStart[g], m_iEnd[g], m_jStart[g], m_jEnd[g], m_kStart[g], m_kEnd[g],
-                                                                               m_global_nz[g], side, a_U[g].dev_ptr(), a_Mu[g].dev_ptr(),
-                                                                               a_Lambda[g].dev_ptr(), mMetric.dev_ptr(),  
-                                                                              dev_BCForcing[g][4], dev_sg_str_x[g], dev_sg_str_y[g], m_ghost_points );
-      }
-
-  }
-  if (m_topography_exists)
-  {
-    gridsize.z = 1;
-    blocksize.z = 1;
-    int g = mNumberOfCartesianGrids-1;
-    int gc = mNumberOfGrids-1; 
-    if( m_corder )
-      enforceCartTopo_dev_rev<<<gridsize, blocksize, 0, m_cuobj->m_stream[st]>>>(m_iStart[g], m_iEnd[g], m_jStart[g], m_jEnd[g], m_kStart[g], m_kEnd[g],
-                             m_iStart[gc], m_iEnd[gc], m_jStart[gc], m_jEnd[gc], m_kStart[gc], m_kEnd[gc],  
-                             a_U[g].dev_ptr(), a_U[gc].dev_ptr(), m_ghost_points);
-   else
-      enforceCartTopo_dev<<<gridsize, blocksize, 0, m_cuobj->m_stream[st]>>>(m_iStart[g], m_iEnd[g], m_jStart[g], m_jEnd[g], m_kStart[g], m_kEnd[g], 
-                          m_iStart[gc], m_iEnd[gc], m_jStart[gc], m_jEnd[gc], m_kStart[gc], m_kEnd[gc],  
-                          a_U[g].dev_ptr(), a_U[gc].dev_ptr(), m_ghost_points);
-  }
-#endif
-}
+   dim3 blocksize, gridsize;
+   gridsize.x  = m_gpu_gridsize[0] * m_gpu_gridsize[1] * m_gpu_gridsize[2];
+   gridsize.y  = 1;
+   gridsize.z  = 1;
+   blocksize.x = m_gpu_blocksize[0] * m_gpu_blocksize[1] * m_gpu_blocksize[2];
+   blocksize.y = 1;
+   blocksize.z = 1;
+   extractRecordData_dev<<<gridsize, blocksize, 0, m_cuobj->m_stream[st]>>>( 
+		          nt, mode, i0v, j0v,
+		          k0v, g0v, urec_dev, dev_Um, dev_U,
+			  dt, h_dev, mNumberOfCartesianGrids, dev_metric, dev_j );
+   cudaError_t retval = cudaMemcpy( urec_hostmem, urec_devmem, sizeof(float_sw4)*nvals, cudaMemcpyDeviceToHost );
+   if( retval != cudaSuccess )
+      cout << "Error in cudaMemcpy in EW::extractRecordDataCU retval = " <<cudaGetErrorString(retval) << endl;
+   
 #endif
 }
 
-
-#endif
