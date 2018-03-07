@@ -2542,7 +2542,7 @@ void EW::timesteploop( vector<Sarray>& U, vector<Sarray>& Um )
 
 // evaluate right hand side
 
-#if SW4_Guillaume
+#if 1
         // RHS + predictor in the free surface and boundaries, stream 0
         RHSPredCU_upper_boundary (Up, U, Um, mMu, mLambda, mRho, F, 0);
 
@@ -2575,7 +2575,9 @@ void EW::timesteploop( vector<Sarray>& U, vector<Sarray>& Um )
 
         // Synchronize all the streams
         cudaDeviceSynchronize();
-#else
+
+#else // earlier implementation without prefetching
+
 	 evalRHSCU( U, mMu, mLambda, Lu, 0 ); // save Lu in composite grid 'Lu'
          if( m_checkfornan )
 	    check_for_nan_GPU( Lu, 1, "Lu pred. " );
@@ -2608,7 +2610,7 @@ void EW::timesteploop( vector<Sarray>& U, vector<Sarray>& Um )
 	 if( m_cuobj->has_gpu() && m_checkfornan )
 	    check_for_nan_GPU( Uacc, 1, "uacc " );
 
-#if SW4_Guillaume
+#if 1
         // RHS + corrector in the free surface and halos (stream 0)
         RHSCorrCU_upper_boundary (Up, Uacc, mMu, mLambda, mRho, F, 0);
 
@@ -2662,7 +2664,9 @@ void EW::timesteploop( vector<Sarray>& U, vector<Sarray>& Um )
 
         // Wait for stream 0 to complete
         m_cuobj->sync_stream(0);
-#else
+
+#else // earlier implementation without prefetching
+
 	 evalRHSCU( Uacc, mMu, mLambda, Lu, 0 );
 	 if( m_cuobj->has_gpu() && m_checkfornan )
 	    check_for_nan_GPU( Lu, 1, "L(uacc) " );

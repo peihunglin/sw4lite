@@ -546,7 +546,10 @@ void EW::copy_bndrywindow_arrays_to_device()
 #endif
 }
 
-#if SW4_Guillaume
+#if 1
+// latest implementation merging predictor, corrector and RHS
+// Adding prefetching into RHS
+
 //---------------------------------------------------------------------------
 void EW::RHSPredCU_upper_boundary(vector<Sarray> & a_Up, vector<Sarray> & a_U, vector<Sarray> & a_Um,
                                   vector<Sarray>& a_Mu, vector<Sarray>& a_Lambda,
@@ -1607,7 +1610,7 @@ void EW::enforceBCCU( vector<Sarray> & a_U, vector<Sarray>& a_Mu, vector<Sarray>
 #endif
 }
 
-#else  // not SW4_Guillaume
+#else  // earlier implementation without prefetching
 
 //-----------------------------------------------------------------------
 void EW::enforceBCCU( vector<Sarray> & a_U, vector<Sarray>& a_Mu, vector<Sarray>& a_Lambda,

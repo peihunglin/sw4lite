@@ -484,7 +484,7 @@ class EW
    bool m_use_dg;
  
    // Halo data communication 
-#if SW4_Guillaume
+#if 1
    vector<float_sw4*> dev_SideEdge_Send, dev_SideEdge_Recv;
    vector<float_sw4*>  m_SideEdge_Send, m_SideEdge_Recv;
 #else

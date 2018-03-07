@@ -7154,7 +7154,6 @@ __global__ void addsgd6c_dev_rev( int ifirst, int ilast, int jfirst, int jlast, 
 
 
 
-#if SW4_Guillaume
 
 // *****************************************************************************
 // *****************************************************************************
@@ -11256,7 +11255,7 @@ __global__ void BufferToHaloKernelX_dev_rev(float_sw4* block_left, float_sw4* bl
 // *************************************************************************************
 // *************************************************************************************
 // *************************************************************************************
-#else
+
 //-----------------------------------------------------------------------
 __global__ void pred_dev( int ifirst, int ilast, int jfirst, int jlast, int kfirst, int klast,
 			  float_sw4* up, float_sw4* u, float_sw4* um, float_sw4* lu, float_sw4* fo,
@@ -13476,8 +13475,6 @@ __global__ void HaloToBufferKernel_dev_rev_v2(float_sw4* block_left, float_sw4* 
          block_right[istart+j] = rightSideEdge[i];
       }
 }
-
-#endif
 
 #include "TimeSeries.h"
 

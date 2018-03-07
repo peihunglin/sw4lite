@@ -39,9 +39,7 @@ else
    CXXFLAGS = -O3 -x cu -I../src -c -dc -arch=$(gpuarch) -DSW4_CROUTINES -DSW4_CUDA -ccbin $(HOSTCOMP) -Xptxas -v 
    CFLAGS   = -O 
 endif
-ifeq ($(SW4_Guillaume),yes)
-   CXXFLAGS += -DSW4_Guillaume
-endif
+
 ifdef MPIINC
   CXXFLAGS += -I$(MPIINC)
 endif	   
